@@ -60,7 +60,7 @@ class GenericMPC:
         opti.solver("ipopt", p_opts, s_opts)
         return opti
 
-    def add_variables(self):
+    def set_variables(self):
         """
         Adds decision variables that will be optimized throughout the control
         horizon of the solver. For optimal results, set initial (guess) values with
@@ -69,18 +69,26 @@ class GenericMPC:
         """
         # TODO self.x = self.opti.variable(self.n_states, self.N + 1)
         # TODO self.u = self.opti.variable(self.n_inputs, self.N) # For multi-shooting
-        pass
+        self.x = self.opti.variable(self.n_states, self.N + 1)
+        self.u = self.opti.variable(self.n_inputs, self.N)  # For multi-shooting
 
-    def add_parameters(self):
+    def set_parameters(self):
         """
         Adds non-decision variables that remain constant throughout the
         decision horizon. The value must set when getting the control through
         self.opti.set_value(self.param, value)
+        ASSUMES: u_params are provided for the entire horizon self.N
+
+        Returns:
+            list of params: all opti parameters that should be applied after u in the model
         """
         # TODO self.x_ref = self.opti.parameter(self.n_states, self.N + 1)
+        # TODO self.param1 = self.opti.parameter(1,self.N)
+        # TODO self.param2 = self.opti.parameter(1,self.N)
+        # TODO return self.param1, self.param2
         pass
 
-    def add_cost(self):
+    def set_cost(self):
         """
         Adds cost to be optimized, for example
 
@@ -93,15 +101,24 @@ class GenericMPC:
         """
         pass
 
-    def add_nonlinear_constraints(self):
+    def set_nonlinear_constraints(self):
         pass
 
     def build_optimizer(self):
-        self.add_variables()
-        self.add_parameters()
+        self.set_variables()
+
+        # Handle parameters that should be concatenated with the input into the model update
+        u_params = self.set_parameters()
+        if u_params is None:
+            u_params = []
+        if isinstance(u_params, tuple):
+            u = ca.vertcat(self.u, *u_params)
+        else:
+            u = ca.vertcat(self.u, u_params)
+
         # add the parameter for the initial value
         self.x0 = self.opti.parameter(self.n_states, 1)
-        self.add_cost()
+        self.set_cost()
         self.opti.minimize(self.cost)
 
         # set dynamics constraints
@@ -109,7 +126,7 @@ class GenericMPC:
             x_next, _ = self.model.f(
                 # curvature is included as a parameter in the simulation
                 self.x[:, t],
-                self.u[:, t],
+                u[:, t],
                 state_noise=self.state_noise,
                 input_noise=self.input_noise,
             )
@@ -119,7 +136,7 @@ class GenericMPC:
         self.opti.subject_to(self.opti.bounded(self.xlb, self.x, self.xub))
         self.opti.subject_to(self.x[:, [0]] == self.x0)
         # set nonlinear constraints
-        self.add_nonlinear_constraints()
+        self.set_nonlinear_constraints()
 
         # self.mpc = opti.to_function("MPC", [x0, x_ref, curvature], [u[:, 0], self.cost, x[:, N], u], [
         #     "xt", "xN", "qN", "intruder_c"], ["u_opt", "cost", "xN", "u"])
