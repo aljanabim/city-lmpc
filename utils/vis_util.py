@@ -354,3 +354,66 @@ def animate_trajectory(
         for filename in tqdm(set(filenames)):
             remove(path.join(dest_folder, filename))
         print("Finished creating GIF at\n", path.join(dest_folder, gif_name))
+
+
+def plot_trajectory(
+    track: Track,
+    vehicles: list[VehicleData],
+    plot_input=False,
+):
+    if plot_input:
+        plt.subplot(2, 1, 1)
+    plt.cla()
+    for vehicle in vehicles:
+        # Set default values
+        x, y, steering = 0, 0, 0
+        # Get real state values
+        if vehicle.states is not None:
+            # k = min(t, vehicle.states.shape[1] - 1)  # get last index for vehicle
+            steps = vehicle.states.shape[1]
+            s = vehicle.states[0, :]
+            e = vehicle.states[1, :]
+            x = np.zeros(steps)
+            y = np.zeros(steps)
+            for i in range(steps):
+                x[i], y[i] = track.to_global(s[i], e[i])
+            yaw = vehicle.states[-1, :]
+        # Get real input values
+        if vehicle.inputs is not None:
+            steering = vehicle.inputs[1, :]
+        plot_car(
+            x[-1],
+            y[-1],
+            yaw[-1],
+            steering[-1],
+            color=vehicle.color,
+            label=vehicle.label,
+        )
+        plt.plot(x, y, color=vehicle.color)
+    # Plot track
+    x_track, y_track = track.cartesian
+    plt.plot(x_track, y_track)
+
+    plt.axis("equal")
+    plt.legend()
+    plt.axis("off")
+
+    if plot_input:
+        plt.subplot(2, 1, 2)
+        plt.cla()
+        for vehicle in vehicles:
+            if vehicle.inputs is not None:
+                plt.plot(
+                    vehicle.inputs[0, :],
+                    label=f"{vehicle.label} " + r"$v_u$",
+                    color=vehicle.color,
+                )
+                plt.plot(
+                    vehicle.inputs[1, :],
+                    "--",
+                    color=vehicle.color,
+                    label=f"{vehicle.label} " + r"$\delta$",
+                )
+                plt.legend()
+
+    plt.pause(0.01)
