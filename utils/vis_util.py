@@ -318,9 +318,8 @@ def animate_trajectory(
             plt.subplot(2, 1, 2)
             plt.cla()
             for vehicle in vehicles:
-
                 if vehicle.inputs is not None:
-                    p = plt.plot(
+                    plt.plot(
                         vehicle.inputs[0, :t],
                         label=f"{vehicle.label} " + r"$v_u$",
                         color=vehicle.color,
