@@ -59,9 +59,6 @@ class TrackPoint:
 
 
 class Track:
-    L_LANE = 0.5
-    S_LANE_OBS = 5
-
     def __init__(
         self,
         arcs: List[Union[ArcByLength, ArcByAngle]],
