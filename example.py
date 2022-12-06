@@ -24,7 +24,7 @@ if __name__ == "__main__":
     p = ca.DM.zeros((1, controller.N)) + 10
     while x0 - x_ref > 0.01:
         uopt, xopt = controller.get_ctrl(x0, x_ref, p)
-        # State Feedback Loop
+        # State Feedback Step
         x0 = model.sim(
             1, u=ca.vertcat(uopt, p[0, 0]), input_noise=False, state_noise=False
         )
