@@ -25,6 +25,6 @@ if __name__ == "__main__":
     )
     simulator = SoloMPCSimulator(model, mpc, track)
     simulator.EXP_NAME = "solo"
-    # simulator.run()
+    simulator.run()
     # simulator.save()
-    simulator.load()
+    # simulator.load()
