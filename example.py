@@ -30,23 +30,4 @@ if __name__ == "__main__":
         )
         print(uopt, x0)
     states, inputs = model.get_trajectory()
-    # print(states, inputs)
-
-    quit()
-    s_onc_0 = 0
-    track = Track([])
-    exp_meta = ExpMeta("example", 0, 0, 0)
-    dest_folder = get_data_folder(exp_meta, s_onc_0)
-    vehicles = [
-        VehicleData("example", COLORS["ego"], states, inputs),
-    ]
-
-    animate_trajectory(
-        dest_folder,
-        track,
-        vehicles,
-        animation_filename="final",
-        save=False,
-        file_format="gif",
-        plot_input=True,
-    )
+    print(states, inputs)

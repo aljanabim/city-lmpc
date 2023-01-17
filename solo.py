@@ -11,11 +11,12 @@ from utils.sim_util import (
     get_data_folder,
 )
 from utils.vis_util import VehicleData, COLORS, animate_trajectory, plot_trajectory
+from utils import sim_util
 
 if __name__ == "__main__":
     lane_width = 0.5
 
-    yaw0 = 0  # ca.pi
+    yaw0 = ca.pi
     track = create_track(0, 0, yaw0)
 
     x = ca.vertcat(0, -lane_width / 2, 0, yaw0)
@@ -45,4 +46,13 @@ if __name__ == "__main__":
         x = model.sim(1, u=u, input_noise=False, state_noise=False)
         states, inputs = model.get_trajectory()
         vehicles = [VehicleData("example", COLORS["ego"], states, inputs)]
-        plot_trajectory(track, vehicles, plot_input=False)
+        plot_trajectory(track, vehicles, plot_input=True)
+
+    # Code for dumping and loading the trajectory
+    # sim_util.dump_trajectory(exp_meta, "J0", states, inputs)
+    # traj = sim_util.load_trajectory(exp_meta, "J0")
+    # animate_trajectory(
+    #     exp_meta,
+    #     track,
+    #     [VehicleData("loaded", COLORS["ego"], traj["states"], traj["inputs"])],
+    # )

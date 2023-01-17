@@ -4,7 +4,7 @@ from models.example import ExampleModel
 
 
 class ExampleMPC(GenericMPC):
-    # This part is only necessary incase the init of ExampleMPC takes different algorithms than GenericMPC
+    # This part is only necessary incase the init of ExampleMPC takes different arguments than GenericMPC
     # def __init__(
     #     self,
     #     model: ExampleModel,
