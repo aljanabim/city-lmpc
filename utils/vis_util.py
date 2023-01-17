@@ -11,6 +11,7 @@ import casadi as ca
 import imageio
 from models.track import Track
 from tqdm import tqdm
+from utils import sim_util
 
 # SVEA Vehicle parameters
 LENGTH = 0.586  # [m]
@@ -256,10 +257,10 @@ def plot_highway(
 
 
 def animate_trajectory(
-    dest_folder: str,
+    exp_meta: sim_util.ExpMeta,
     track: Track,
     vehicles: list[VehicleData],
-    animation_filename: str,
+    animation_filename="",
     save=False,
     plot_axis=False,
     plot_input=False,
@@ -271,7 +272,9 @@ def animate_trajectory(
     all_time_steps = [vehicle.states.shape[1] for vehicle in vehicles]
     time_steps = np.max(all_time_steps)
 
+    dest_folder = sim_util.get_data_folder(exp_meta)
     if save:
+        assert animation_filename != "", "Animation filename cannot be empty"
         print("Creating GIF of trajectory at\n", path.join(dest_folder, gif_name))
     filenames = []
     for t in tqdm(range(time_steps)):
@@ -361,6 +364,14 @@ def plot_trajectory(
     vehicles: list[VehicleData],
     plot_input=False,
 ):
+    """Very similar to animate_trajectory without tqdm and the ability to save the plots into an animation file.
+    plot_trajectory just shows each frame with a 0.01 pause.
+
+    Args:
+        track (Track): _description_
+        vehicles (list[VehicleData]): _description_
+        plot_input (bool, optional): _description_. Defaults to False.
+    """
     if plot_input:
         plt.subplot(2, 1, 1)
     plt.cla()

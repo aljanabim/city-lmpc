@@ -37,12 +37,13 @@ def create_experiment(exp_meta: ExpMeta, s_0_onc: int = None):
     exp_folder = path.join(root, "trajectories", exp_name)
     try:
         mkdir(exp_folder)
-        # create meta data file
-        with open(path.join(exp_folder, "meta.txt"), "w+") as file:
-            for k, v in exp_meta.__dict__.items():
-                file.write(f"{k}: {v}\n")
     except OSError as error:
         print(error)
+
+    # create meta data file
+    with open(path.join(exp_folder, "meta.txt"), "w+") as file:
+        for k, v in exp_meta.__dict__.items():
+            file.write(f"{k}: {v}\n")
 
     if s_0_onc is not None:
         data_folder = path.join(exp_folder, f"s_onc_{s_0_onc}")
