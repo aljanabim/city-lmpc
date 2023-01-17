@@ -1,8 +1,8 @@
-from models.generic import GenericModel
+from models.base import BaseModel
 import numpy as np
 
 
-class SoloBicycleModel(GenericModel):
+class SoloBicycleModel(BaseModel):
     TAU = 0.1
     WB = 0.324  # [m] Wheelbase of vehicle
     INPUT_NOISE_STD = 0.05
@@ -51,7 +51,7 @@ class SoloBicycleModel(GenericModel):
         self.dae.set_unit("phi", "rad")
 
 
-class SoloFrenetModel(GenericModel):
+class SoloFrenetModel(BaseModel):
     TAU = 0.1
     WB = 0.324  # [m] Wheelbase of vehicle
     INPUT_NOISE_STD = 0.05

@@ -3,9 +3,9 @@ import numpy as np
 import casadi as ca
 
 
-class GenericModel:
+class BaseModel:
     """
-    Generic Model
+    Base Model
     Exposes:
         build_model() // builds DAE, Integrator, and Simulator
         reset_trajectory() // Resets trajectory arrays and sets x0 as initial state

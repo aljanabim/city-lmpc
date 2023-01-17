@@ -1,11 +1,11 @@
-from models.generic import GenericModel
+from models.base import BaseModel
 import casadi as ca
 import numpy as np
 
-# Example of how to use the GenericModel
+# Example of how to use the BaseModel
 
 
-class ExampleModel(GenericModel):
+class ExampleModel(BaseModel):
     NEW_PARAM = 0.1
 
     def __init__(self, x0=[0], dt=0.1):

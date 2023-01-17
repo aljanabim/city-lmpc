@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pickle
 import casadi as ca
-from models.generic import GenericModel
+from models.base import BaseModel
 from models.track import ArcByAngle, ArcByLength, Track
 
 root = path.abspath(path.join(path.dirname(path.abspath(__file__)), ".."))
@@ -20,7 +20,8 @@ class ExpMeta:
 
 
 def get_obs_state(exp_meta: ExpMeta, track: Track):
-    point_idx = np.argmin(np.absolute(track.points_array[2, :] - exp_meta.s_obs))
+    point_idx = np.argmin(np.absolute(
+        track.points_array[2, :] - exp_meta.s_obs))
 
     point = track.points[point_idx]
     return ca.vertcat(point.s, -track.L_LANE / 2, 0, point.phi_s)
@@ -140,7 +141,7 @@ def compute_ref_trajectory(
     if get_last:
         x_ref[0, :] = track.points_array[2, -1]
     else:
-        x_ref[0, :] = track.points_array[2, i : i + N + 1]
+        x_ref[0, :] = track.points_array[2, i: i + N + 1]
 
     x_ref[1, :] = e_ref
     x_ref[2, :] = v_ref + 0.01  # + correction term
@@ -152,21 +153,21 @@ def compute_ref_trajectory(
             x_ref[-1, :] = track.points_array[4, -1] - np.pi
             curvature[0, :] = -track.points_array[3, -1]
         else:
-            x_ref[-1, :] = track.points_array[4, i : i + N + 1] - np.pi
-            curvature[0, :] = -track.points_array[3, i : i + N]
+            x_ref[-1, :] = track.points_array[4, i: i + N + 1] - np.pi
+            curvature[0, :] = -track.points_array[3, i: i + N]
     else:
         if get_last:
             x_ref[-1, :] = track.points_array[4, -1]
             curvature[0, :] = track.points_array[3, -1]
         else:
-            x_ref[-1, :] = track.points_array[4, i : i + N + 1]
-            curvature[0, :] = track.points_array[3, i : i + N]
+            x_ref[-1, :] = track.points_array[4, i: i + N + 1]
+            curvature[0, :] = track.points_array[3, i: i + N]
     if get_last:
         phi_0_arc[0, :] = track.points_array[6, -1]
         s_0_arc[0, :] = track.points_array[5, -1]
     else:
-        phi_0_arc[0, :] = track.points_array[6, i : i + N]
-        s_0_arc[0, :] = track.points_array[5, i : i + N]
+        phi_0_arc[0, :] = track.points_array[6, i: i + N]
+        s_0_arc[0, :] = track.points_array[5, i: i + N]
 
     return x_ref, curvature, s_0_arc, phi_0_arc
 

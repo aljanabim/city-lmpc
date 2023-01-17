@@ -1,9 +1,9 @@
 import casadi as ca
-from controllers.generic import GenericMPC
+from controllers.base import BaseMPC
 from models.solo import SoloFrenetModel
 
 
-class SoloMPC(GenericMPC):
+class SoloMPC(BaseMPC):
     def set_parameters(self):
         self.x_ref = self.opti.parameter(self.n_states, self.N + 1)
         self.curvature = self.opti.parameter(1, self.N)

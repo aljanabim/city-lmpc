@@ -1,12 +1,12 @@
 import numpy as np
 import casadi as ca
-from models.generic import GenericModel
+from models.base import BaseModel
 
 
-class GenericMPC:
+class BaseMPC:
     def __init__(
         self,
-        model: GenericModel,
+        model: BaseModel,
         Q: ca.DM,
         R: ca.DM,
         xlb: ca.DM,
@@ -70,7 +70,8 @@ class GenericMPC:
         # TODO self.x = self.opti.variable(self.n_states, self.N + 1)
         # TODO self.u = self.opti.variable(self.n_inputs, self.N) # For multi-shooting
         self.x = self.opti.variable(self.n_states, self.N + 1)
-        self.u = self.opti.variable(self.n_inputs, self.N)  # For multi-shooting
+        self.u = self.opti.variable(
+            self.n_inputs, self.N)  # For multi-shooting
 
     def set_parameters(self):
         """

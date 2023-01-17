@@ -13,7 +13,7 @@ City-LMPC demonstrates the application of LMPC on several smart city scenarios w
 
 ### Model
 
-A model defines the kinematic model of all agents involved in the demo. Every model is a class with inherits the `GenericModel` class found under `city_lmpc/models/generic.py`.
+A model defines the kinematic model of all agents involved in the demo. Every model is a class with inherits the `BaseModel` class found under `city_lmpc/models/base.py`.
 
 ### Controller
 

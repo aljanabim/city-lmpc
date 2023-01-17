@@ -1,10 +1,10 @@
 import casadi as ca
-from controllers.generic import GenericMPC
+from controllers.base import BaseMPC
 from models.example import ExampleModel
 
 
-class ExampleMPC(GenericMPC):
-    # This part is only necessary incase the init of ExampleMPC takes different arguments than GenericMPC
+class ExampleMPC(BaseMPC):
+    # This part is only necessary incase the init of ExampleMPC takes different arguments than BaseMPC
     # def __init__(
     #     self,
     #     model: ExampleModel,
