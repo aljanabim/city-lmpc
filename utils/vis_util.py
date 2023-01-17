@@ -85,9 +85,11 @@ def plot_car(x, y, yaw, steer=0.0, color="-k", plot=True, label=""):
     rl_wheel = np.copy(rr_wheel)
     rl_wheel[1, :] *= -1
 
-    Rot1 = np.matrix([[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]])
+    Rot1 = np.matrix([[math.cos(yaw), math.sin(yaw)],
+                     [-math.sin(yaw), math.cos(yaw)]])
     Rot2 = np.matrix(
-        [[math.cos(steer), math.sin(steer)], [-math.sin(steer), math.cos(steer)]]
+        [[math.cos(steer), math.sin(steer)],
+         [-math.sin(steer), math.cos(steer)]]
     )
 
     fr_wheel = (fr_wheel.T * Rot2).T
@@ -115,7 +117,8 @@ def plot_car(x, y, yaw, steer=0.0, color="-k", plot=True, label=""):
 
     if plot:
         plt.plot(
-            np.array(outline[0, :]).flatten(), np.array(outline[1, :]).flatten(), color
+            np.array(outline[0, :]).flatten(), np.array(
+                outline[1, :]).flatten(), color
         )
         plt.plot(
             np.array(fr_wheel[0, :]).flatten(),
@@ -197,7 +200,8 @@ def plot_highway(
     # end section off onramp lane
     end_length = 2.0
     y_onramp_end = np.linspace(
-        -lane_width / 2, lane_width / 2, int(np.ceil(lane_width * points_per_meter))
+        -lane_width / 2, lane_width /
+        2, int(np.ceil(lane_width * points_per_meter))
     )
     x_onramp_end = np.linspace(
         start_onramp + length_onramp,
@@ -244,7 +248,8 @@ def plot_highway(
         plt.plot(x_onramp_end, y_onramp_end, color)
         plt.plot(x_solid_onramp, y_solid_onramp, color)
         plt.plot(x_solid_onramp, y_solid_onramp, color)
-        plt.plot(x_onramp_dashed, y_onramp_dashed, color_dashed, linestyle=(0, (5, 10)))
+        plt.plot(x_onramp_dashed, y_onramp_dashed,
+                 color_dashed, linestyle=(0, (5, 10)))
     for i in range(n_lanes):
         # solid line for final lane
         if i + 1 < n_lanes:
@@ -275,7 +280,8 @@ def animate_trajectory(
     dest_folder = sim_util.get_data_folder(exp_meta)
     if save:
         assert animation_filename != "", "Animation filename cannot be empty"
-        print("Creating GIF of trajectory at\n", path.join(dest_folder, gif_name))
+        print("Creating GIF of trajectory at\n",
+              path.join(dest_folder, gif_name))
     filenames = []
     for t in tqdm(range(time_steps)):
         if save:
@@ -289,14 +295,16 @@ def animate_trajectory(
             x, y, steering = 0, 0, 0
             # Get real state values
             if vehicle.states is not None:
-                k = min(t, vehicle.states.shape[1] - 1)  # get last index for vehicle
+                # get last index for vehicle
+                k = min(t, vehicle.states.shape[1] - 1)
                 s = vehicle.states[0, k]
                 e = vehicle.states[1, k]
                 x, y = track.to_global(s=s, e=e)
                 yaw = vehicle.states[-1, k]
             # Get real input values
             if vehicle.inputs is not None:
-                k = min(t, vehicle.inputs.shape[1] - 1)  # get last index for vehicle
+                # get last index for vehicle
+                k = min(t, vehicle.inputs.shape[1] - 1)
                 steering = vehicle.inputs[1, k]
             plot_car(
                 x,
@@ -400,6 +408,7 @@ def plot_trajectory(
             color=vehicle.color,
             label=vehicle.label,
         )
+        # plot path of vehicle too
         plt.plot(x, y, color=vehicle.color)
     # Plot track
     x_track, y_track = track.cartesian
