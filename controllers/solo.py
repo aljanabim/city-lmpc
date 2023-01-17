@@ -1,9 +1,9 @@
 import casadi as ca
 from controllers.base import BaseMPC
-from models.solo import SoloFrenetModel
 
 
 class SoloMPC(BaseMPC):
+    # Uses the SoloFrenetModel
     def set_parameters(self):
         self.x_ref = self.opti.parameter(self.n_states, self.N + 1)
         self.curvature = self.opti.parameter(1, self.N)
@@ -44,28 +44,47 @@ class SoloMPC(BaseMPC):
         return self.solve()
 
 
-class SoloLMPC(SoloMPC):
+class SoloRelaxedLMPC(BaseMPC):
+    # Uses the SoloFrenetModel
+    LAMBDA_SIZE = 10
+
+    def set_variables(self):
+        self.x = self.opti.variable(self.n_states, self.N + 1)
+        self.u = self.opti.variable(
+            self.n_inputs, self.N)  # For multi-shooting
+        self.lam = self.opti.variable(1, self.LAMBDA_SIZE)
+
     def set_parameters(self):
         self.curvature = self.opti.parameter(1, self.N)
         self.s_0_arc = self.opti.parameter(1, self.N)
         self.phi_0_arc = self.opti.parameter(1, self.N)
         self.terminal_cost = self.opti.parameter(1, 1)
-        self.terminal_state = self.opti.parameter(self.n_states, 1)
+        # self.terminal_state = self.opti.parameter(self.n_states, 1)
+        self.stored_cost_to_go = self.opti.parameter(1, self.LAMBDA_SIZE)
+        # self.terminal_state = self.opti.parameter(self.n_states, 1)
+        self.stored_states = self.opti.parameter(
+            self.n_states, self.LAMBDA_SIZE)
         return self.curvature, self.s_0_arc, self.phi_0_arc
 
     def set_cost(self):
-        self.cost = self.N + self.terminal_cost
+        self.cost = self.N + self.lam @ self.stored_cost_to_go.T
 
     def set_nonlinear_constraints(self):
-        self.opti.subject_to(self.x[:, self.N] == self.terminal_state)
+        # All lambda must be greater or equal to zero
+        self.opti.subject_to(0 <= self.lam)
+        # The convex hulls parameters must add up to
+        self.opti.subject_to(ca.sum2(self.lam) == 1)
+        # The last state must be in the convex hull of the stored states
+        self.opti.subject_to(self.x[:, self.N] ==
+                             self.stored_states @ self.lam.T)
 
     def get_ctrl(
-        self, x0, curvature, s_0_arc, phi_0_arc, terminal_cost, terminal_state
+        self, x0, curvature, s_0_arc, phi_0_arc, stored_cost_to_go, stored_states
     ):
         self.opti.set_value(self.x0, x0)
         self.opti.set_value(self.curvature, curvature)
         self.opti.set_value(self.s_0_arc, s_0_arc)
         self.opti.set_value(self.phi_0_arc, phi_0_arc)
-        self.opti.set_value(self.terminal_cost, terminal_cost)
-        self.opti.set_value(self.terminal_state, terminal_state)
+        self.opti.set_value(self.stored_cost_to_go, stored_cost_to_go)
+        self.opti.set_value(self.stored_states, stored_states)
         return self.solve()
