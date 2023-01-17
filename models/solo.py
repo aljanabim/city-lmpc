@@ -116,7 +116,7 @@ class SoloFrenetModel(BaseModel):
 
 if __name__ == "__main__":
     x0 = [0, 0, 0, np.pi]
-    model = BicycleModel(x0)
+    model = SoloBicycleModel(x0)
     t = 20
     u = np.zeros((2, t))
     u[0, :] = 0.5
