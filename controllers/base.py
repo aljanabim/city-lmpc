@@ -34,8 +34,6 @@ class BaseMPC:
         self.state_noise = state_noise
         self.input_noise = input_noise
 
-        # setup optimizer
-        self.opti = self._create_optimizer()
         # Build variables, parameters, cost,
         self.build_optimizer()
 
@@ -106,6 +104,10 @@ class BaseMPC:
         pass
 
     def build_optimizer(self):
+        # setup optimizer
+        self.opti = self._create_optimizer()
+
+        # Set control variables
         self.set_variables()
 
         # Handle parameters that should be concatenated with the input into the model update
