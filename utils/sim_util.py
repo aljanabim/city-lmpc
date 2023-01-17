@@ -76,8 +76,7 @@ def load_trajectory(exp_meta: ExpMeta, trajectory_filename: str):
             return pickle.load(file)
     except IOError as error:
         print(error)
-        trajectory_dict = {"states": None, "inputs": None}
-        return trajectory_dict
+        return None
 
 
 def check_trajectory(exp_meta: ExpMeta, trajectory_filename: str):
