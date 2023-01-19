@@ -68,8 +68,7 @@ class BaseMPC:
         # TODO self.x = self.opti.variable(self.n_states, self.N + 1)
         # TODO self.u = self.opti.variable(self.n_inputs, self.N) # For multi-shooting
         self.x = self.opti.variable(self.n_states, self.N + 1)
-        self.u = self.opti.variable(
-            self.n_inputs, self.N)  # For multi-shooting
+        self.u = self.opti.variable(self.n_inputs, self.N)  # For multi-shooting
 
     def set_parameters(self):
         """
@@ -99,6 +98,13 @@ class BaseMPC:
         self.cost += errN.T @ self.Q @ errN
         """
         pass
+
+    def set_linear_constraints(self):
+        """
+        Sets the state and inputs constraints provided to the class constructor.
+        """
+        self.opti.subject_to(self.opti.bounded(self.ulb, self.u, self.uub))
+        self.opti.subject_to(self.opti.bounded(self.xlb, self.x, self.xub))
 
     def set_nonlinear_constraints(self):
         pass
@@ -134,10 +140,10 @@ class BaseMPC:
                 input_noise=self.input_noise,
             )
             self.opti.subject_to(self.x[:, t + 1] == x_next)
-        # set linear constraints
-        self.opti.subject_to(self.opti.bounded(self.ulb, self.u, self.uub))
-        self.opti.subject_to(self.opti.bounded(self.xlb, self.x, self.xub))
+        # set initial state constraint
         self.opti.subject_to(self.x[:, [0]] == self.x0)
+        # set linear constraints
+        self.set_linear_constraints()
         # set nonlinear constraints
         self.set_nonlinear_constraints()
 
