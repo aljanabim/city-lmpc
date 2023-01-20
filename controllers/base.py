@@ -97,7 +97,7 @@ class BaseMPC:
         errN = self.x[:, self.N] - self.x_ref
         self.cost += errN.T @ self.Q @ errN
         """
-        pass
+        self.cost = 0
 
     def set_linear_constraints(self):
         """
@@ -159,7 +159,8 @@ class BaseMPC:
         # u_opt = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         u_opt = self.opti.value(self.u[:, [0]])
         x_pred = self.opti.value(self.x)
-        return u_opt, x_pred
+        cost = self.opti.value(self.cost)
+        return u_opt, x_pred, cost
 
     def get_ctrl(self, x0, *parameters):
         # TODO self.opti.set_value(self.x0,x0)
