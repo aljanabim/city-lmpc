@@ -1,3 +1,4 @@
+import casadi as ca
 import numpy as np
 from typing import Tuple, Dict
 from utils import sim_util, vis_util
@@ -7,17 +8,25 @@ from models.track import Track
 
 
 class BaseSimulator:
-    EXP_NAME = "base"
+    _EXP_NAME = "base"
 
     def __init__(self, model: BaseModel, controller: BaseMPC, track: Track):
         self.model = model
         self.controller = controller
         self.track = track
 
-        self.x = self.model.x0
+        self.reset()
         self.exp_meta = sim_util.ExpMeta(self.EXP_NAME, 0, self.x[0, 0])
         self.vehicles: Tuple[vis_util.VehicleData] = None
-        self.time_step = 0
+
+    @property
+    def EXP_NAME(self):
+        return self._EXP_NAME
+
+    @EXP_NAME.setter
+    def EXP_NAME(self, name):
+        self._EXP_NAME = name
+        self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, 0, self.x[0, 0])
 
     def reset(self):
         """
@@ -31,7 +40,7 @@ class BaseSimulator:
         """
         Stop condition for the simulator. Returns False, when the simulator should stop.
         """
-        return self.x[0, 0] < self.track.length
+        return self.x[0, 0] <= self.track.length
 
     def step(self):
         """
@@ -119,10 +128,10 @@ class BaseLMPCSimulator(BaseSimulator):
         trajectories: Tuple[Dict],
         max_iter: int,
     ):
+        super().__init__(model, controller, track)
         self.trajectories = trajectories
         self.max_iter = max_iter
         self._parse_trajectories()
-        super().__init__(model, controller, track)
 
     def _parse_trajectories(self):
         self.SSx = {}
@@ -147,11 +156,24 @@ class BaseLMPCSimulator(BaseSimulator):
             iteration (int): Number of the iteration
         """
 
-        T_iteration = trajectory["states"].shape[1] - 1
         self.SSx[iteration] = trajectory["states"]
         self.SSu[iteration] = trajectory["inputs"]
-        self.cost_to_go[iteration] = np.arange(T_iteration, -1, -1)[np.newaxis, :]
-        self.T[iteration] = T_iteration
+
+        total_time = trajectory["states"].shape[1]
+        self.cost_to_go[iteration] = ca.DM.zeros(1, total_time)
+        cost = 0
+        for t in range(total_time - 1, -1, -1):
+            s = self.SSx[iteration][0, t]
+            if s < self.track.length:
+                cost += 1
+            self.cost_to_go[iteration][0, t] = cost
+
+        # if trajectories are guaranteed to stop before hitting track length
+        # can replace the for loop above with the following
+        # T_iteration = trajectory["states"].shape[1] - 1
+        # self.cost_to_go[iteration] = np.arange(T_iteration, -1, -1)[np.newaxis, :]
+
+        self.T[iteration] = self.cost_to_go[iteration][0, 0]
 
     def keep_iterating(self):
         return self.iteration <= self.max_iter
