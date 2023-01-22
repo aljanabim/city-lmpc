@@ -20,8 +20,7 @@ class ExpMeta:
 
 
 def get_obs_state(exp_meta: ExpMeta, track: Track):
-    point_idx = np.argmin(np.absolute(
-        track.points_array[2, :] - exp_meta.s_obs))
+    point_idx = np.argmin(np.absolute(track.points_array[2, :] - exp_meta.s_obs))
 
     point = track.points[point_idx]
     return ca.vertcat(point.s, -track.L_LANE / 2, 0, point.phi_s)
@@ -140,7 +139,7 @@ def compute_ref_trajectory(
     if get_last:
         x_ref[0, :] = track.points_array[2, -1]
     else:
-        x_ref[0, :] = track.points_array[2, i: i + N + 1]
+        x_ref[0, :] = track.points_array[2, i : i + N + 1]
 
     x_ref[1, :] = e_ref
     x_ref[2, :] = v_ref + 0.01  # + correction term
@@ -152,21 +151,21 @@ def compute_ref_trajectory(
             x_ref[-1, :] = track.points_array[4, -1] - np.pi
             curvature[0, :] = -track.points_array[3, -1]
         else:
-            x_ref[-1, :] = track.points_array[4, i: i + N + 1] - np.pi
-            curvature[0, :] = -track.points_array[3, i: i + N]
+            x_ref[-1, :] = track.points_array[4, i : i + N + 1] - np.pi
+            curvature[0, :] = -track.points_array[3, i : i + N]
     else:
         if get_last:
             x_ref[-1, :] = track.points_array[4, -1]
             curvature[0, :] = track.points_array[3, -1]
         else:
-            x_ref[-1, :] = track.points_array[4, i: i + N + 1]
-            curvature[0, :] = track.points_array[3, i: i + N]
+            x_ref[-1, :] = track.points_array[4, i : i + N + 1]
+            curvature[0, :] = track.points_array[3, i : i + N]
     if get_last:
         phi_0_arc[0, :] = track.points_array[6, -1]
         s_0_arc[0, :] = track.points_array[5, -1]
     else:
-        phi_0_arc[0, :] = track.points_array[6, i: i + N]
-        s_0_arc[0, :] = track.points_array[5, i: i + N]
+        phi_0_arc[0, :] = track.points_array[6, i : i + N]
+        s_0_arc[0, :] = track.points_array[5, i : i + N]
 
     return x_ref, curvature, s_0_arc, phi_0_arc
 
@@ -195,3 +194,32 @@ def create_track(x0, y0, phi0, arcs=None, flip=False) -> Track:
             ArcByLength(0, 1.35),
         ]
     return Track(arcs, x_s0=x0, y_s0=y0, phi_s0=phi0, flip=flip)
+
+
+def setup_solo():
+    from models.solo import SoloFrenetModel
+    from controllers.solo import SoloMPC
+
+    lane_width = 0.5
+    yaw0 = ca.pi
+    track = create_track(0, 0, yaw0)
+
+    # Get Model
+    x = ca.vertcat(0, -lane_width / 2, 0, yaw0)
+    model = SoloFrenetModel(x)
+
+    # Input and state constraints for MPC, +0.5 on s to allow reaching the target
+    xub = ca.vertcat(track.length + 0.5, lane_width - model.WB / 2, 1.5, ca.inf)
+    uub = ca.vertcat(0.75, ca.pi / 4)
+
+    # Get trajectory for initial iteration
+    mpc = SoloMPC(
+        model,
+        Q=ca.diag((1, 300, 200, 20)),
+        R=ca.diag((100, 4)),
+        xlb=-xub,
+        xub=xub,
+        ulb=-uub,
+        uub=uub,
+    )
+    return model, mpc, track

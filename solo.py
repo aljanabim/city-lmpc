@@ -16,28 +16,7 @@ if __name__ == "__main__":
     results for J1 and then a bunch of bugs for further iterations.
     """
     EXP_NAME = "solo"
-    lane_width = 0.5
-    yaw0 = ca.pi
-    track = sim_util.create_track(0, 0, yaw0)
-
-    # Get Model
-    x = ca.vertcat(0, -lane_width / 2, 0, yaw0)
-    model = SoloFrenetModel(x)
-
-    # Input and state constraints for MPC, +0.5 on s to allow reaching the target
-    xub = ca.vertcat(track.length + 0.5, lane_width - model.WB / 2, 1.5, ca.inf)
-    uub = ca.vertcat(0.75, ca.pi / 4)
-
-    # Get trajectory for initial iteration
-    mpc = SoloMPC(
-        model,
-        Q=ca.diag((1, 300, 200, 20)),
-        R=ca.diag((100, 4)),
-        xlb=-xub,
-        xub=xub,
-        ulb=-uub,
-        uub=uub,
-    )
+    model, mpc, track = sim_util.setup_solo()
     simulator = SoloMPCSimulator(model, mpc, track)
     simulator.EXP_NAME = EXP_NAME
     traj_0 = simulator.load(iteration=0)
@@ -53,7 +32,9 @@ if __name__ == "__main__":
     trajectories = [simulator.load(j) for j in range(0, load_until + 1)]
 
     # # # Start LMPC learning
-    lmpc = SoloRelaxedLMPC(model, Q=None, R=None, xlb=-xub, xub=xub, ulb=-uub, uub=uub)
+    lmpc = SoloRelaxedLMPC(
+        model, Q=None, R=None, xlb=-mpc.xub, xub=mpc.xub, ulb=-mpc.uub, uub=mpc.uub
+    )
     simulator = SoloRelaxedLMPCSimulator(model, lmpc, track, trajectories, max_iter=15)
     simulator.EXP_NAME = EXP_NAME
     # simulator.run()
