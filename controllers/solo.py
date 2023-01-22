@@ -58,10 +58,9 @@ class SoloRelaxedLMPC(BaseMPC):
         self.curvature = self.opti.parameter(1, self.N)
         self.s_0_arc = self.opti.parameter(1, self.N)
         self.phi_0_arc = self.opti.parameter(1, self.N)
-        self.terminal_cost = self.opti.parameter(1, 1)
+        # self.terminal_cost = self.opti.parameter(1, 1)
         # self.terminal_state = self.opti.parameter(self.n_states, 1)
         self.stored_cost_to_go = self.opti.parameter(1, self.LAMBDA_SIZE)
-        # self.terminal_state = self.opti.parameter(self.n_states, 1)
         self.stored_states = self.opti.parameter(self.n_states, self.LAMBDA_SIZE)
         return self.curvature, self.s_0_arc, self.phi_0_arc
 
