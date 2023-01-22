@@ -9,6 +9,7 @@ from models.track import Track
 
 class BaseSimulator:
     _EXP_NAME = "base"
+    _S_OBS = 0.0
 
     def __init__(self, model: BaseModel, controller: BaseMPC, track: Track):
         self.model = model
@@ -16,7 +17,7 @@ class BaseSimulator:
         self.track = track
 
         self.reset()
-        self.exp_meta = sim_util.ExpMeta(self.EXP_NAME, 0, self.x[0, 0])
+        self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, self._S_OBS, self.x[0, 0])
         self.vehicles: Tuple[vis_util.VehicleData] = None
 
     @property
@@ -24,9 +25,18 @@ class BaseSimulator:
         return self._EXP_NAME
 
     @EXP_NAME.setter
-    def EXP_NAME(self, name):
+    def EXP_NAME(self, name: str):
         self._EXP_NAME = name
-        self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, 0, self.x[0, 0])
+        self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, self._S_OBS, self.x[0, 0])
+
+    @property
+    def S_OBS(self):
+        return self._S_OBS
+
+    @S_OBS.setter
+    def S_OBS(self, s_obs: float):
+        self._S_OBS = s_obs
+        self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, self._S_OBS, self.x[0, 0])
 
     def reset(self):
         """
