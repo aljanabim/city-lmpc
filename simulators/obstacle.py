@@ -2,9 +2,11 @@ import numpy as np
 import casadi as ca
 from utils import sim_util, vis_util
 from models.solo import SoloFrenetModel
-from controllers.solo import SoloMPC, SoloRelaxedLMPC
+from controllers.solo import SoloMPC
+from controllers.obstacle import ObstacleLMPC
 from models.track import Track
 from simulators.base import BaseSimulator, BaseLMPCSimulator
+import time
 
 
 class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
@@ -17,7 +19,7 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
 
     def step(self):
         if (
-            self.S_OBS - self.model.LENGTH - 0.75  # 1 [m] margin
+            self.S_OBS - self.model.LENGTH - 1  # 1 [m] margin
             < self.x[0, 0]
             < self.S_OBS + self.model.LENGTH
         ):  # switch condition
@@ -59,7 +61,7 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
     def __init__(
         self,
         model: SoloFrenetModel,
-        controller: SoloRelaxedLMPC,
+        controller: ObstacleLMPC,
         track,
         trajectories,
         max_iter,
@@ -68,6 +70,9 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         self.model = model
         self.controller = controller
         super().__init__(model, controller, track, trajectories, max_iter)
+        self.n_points = 20
+        self.n_included_iterations = 3
+        self.phi_obs = None
 
     def reset(self):
         super().reset()
@@ -77,21 +82,45 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         T_opt = min(self.T.values())
         # int to ensure it can be used as index
         return int(min(self.T[iteration] + self.time_step - T_opt, self.T[iteration]))
+        # + 0
+        # * self.controller.N  # added to give more realistic look-ahead (N steps away no at s)
 
     def get_stored_data(self):
         stored_cost_to_go = ca.DM()
         stored_states = ca.DM()
-        for j, (cost_to_go_j, states_j) in enumerate(
-            zip(self.cost_to_go.values(), self.SSx.values())
-        ):
-            it_idx = self.compute_it_idx(j)
-            print("iteration", j, "k", it_idx)
-            stored_cost_to_go = ca.horzcat(stored_cost_to_go, cost_to_go_j[:, it_idx:])
-            stored_states = ca.horzcat(stored_states, states_j[:, it_idx:])
+        # Lower bound for iterations to include
+        l = max(self.iteration - self.n_included_iterations, 0)
+        # Upper bound to iteration to include current iteration excluded
+        j = self.iteration
+        for i in range(l, j):
+            cost_to_go_i = self.cost_to_go[i]
+            states_i = self.SSx[i]
+
+            # Limit ranges to ensure they don't exceed size of stored data
+            # it_idx_lower = min(self.compute_it_idx(i), cost_to_go_i.shape[1] - 1)
+            point_idx = np.argmin(np.abs(states_i[0, :] - self.x[0, 0])) + 1
+            it_idx_lower = min(point_idx, cost_to_go_i.shape[1] - 1)
+            it_idx_upper = min(it_idx_lower + self.n_points, cost_to_go_i.shape[1])
+            print(
+                "idx_lower",
+                it_idx_lower,
+                "idx_upper",
+                it_idx_upper,
+                "total",
+                cost_to_go_i.shape[1],
+            )
+
+            stored_cost_to_go = ca.horzcat(
+                stored_cost_to_go, cost_to_go_i[:, it_idx_lower:it_idx_upper]
+            )
+            stored_states = ca.horzcat(
+                stored_states, states_i[:, it_idx_lower:it_idx_upper]
+            )
+
         return stored_cost_to_go, stored_states
 
     def keep_running(self):
-        return self.slack_norm > 1e-8
+        return self.x[0, 0] < self.track.length
 
     def step(self):
         _, curvature, s_0_arc, phi_0_arc = sim_util.compute_ref_trajectory(
@@ -103,34 +132,74 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
             e_ref=self.model.x0[1, 0],
         )
         stored_cost_to_go, stored_states = self.get_stored_data()
+        # no need to rebuild controller optimizer here with self.controller.build_optimizer()
 
-        # rebuild controller optimizer with new LAMBDA_SIZE (generates new control variables)
-        self.controller.LAMBDA_SIZE = stored_cost_to_go.shape[1]
-        self.controller.build_optimizer()
+        # compute control for all sampled terminal states from save sets
+        results = []
+        for k in range(stored_cost_to_go.shape[1]):
+            # print(
+            #     "Solving for point",
+            #     k,
+            #     "cost",
+            #     stored_cost_to_go[:, k],
+            #     "state",
+            #     stored_states[:, k],
+            # )
+            try:
+                uopt, _, cost, slack_norm = self.controller.get_ctrl(
+                    self.x,
+                    curvature,
+                    s_0_arc,
+                    phi_0_arc,
+                    terminal_cost=stored_cost_to_go[:, k],
+                    terminal_state=stored_states[:, k],
+                    s_obs=self.S_OBS,
+                    s_final=self.track.length,
+                )
+                # print("slack norm", slack_norm)
+                results.append((uopt, cost, slack_norm))
+            except:
+                print(
+                    "Unable to solve for x-xN=",
+                    stored_states[:, k] - self.x,
+                    "with k",
+                    k,
+                )
+        # Find the best results
+        costs = [result[1] for result in results]
+        opt_idx = np.argmin(costs)
+        print("Best cost", results[opt_idx][1], "index", opt_idx)
+        uopt = results[opt_idx][0]
+        self.slack_norm = results[opt_idx][2]
 
-        uopt, _, _, self.slack_norm = self.controller.get_ctrl(
-            self.x, curvature, s_0_arc, phi_0_arc, stored_cost_to_go, stored_states
-        )
         u = ca.vertcat(uopt, curvature[0], s_0_arc[0], phi_0_arc[0])
         # State Feedback Step
         self.x = self.model.sim(1, u=u, input_noise=False, state_noise=False)
 
         states, inputs = self.model.get_trajectory()
+        obs_states = ca.DM(states.shape[0], 1)
+        obs_states[0, 0] = self.S_OBS  # set s
+        if self.phi_obs is None:
+            point_idx = np.argmin(np.abs(self.track.points_array[2, :] - self.S_OBS))
+            self.phi_obs = self.track.points[point_idx].phi_s
+        obs_states[1, 0] = self.model.x0[1, 0]
+        obs_states[-1, 0] = self.phi_obs  # set heading angle
+        obs_inputs = ca.DM(inputs.shape[0], 1)
         self.vehicles = [
-            vis_util.VehicleData("car", vis_util.COLORS["ego"], states, inputs)
+            vis_util.VehicleData("ego", vis_util.COLORS["ego"], states, inputs),
+            vis_util.VehicleData("obs", vis_util.COLORS["obs"], obs_states, obs_inputs),
         ]
 
     def post_step(self):
         super().post_step()
         print(
             "J-1 time",
-            self.cost_to_go[self.iteration - 1][0, 0],
+            self.T[self.iteration - 1],
             "J time",
             self.time_step,
-            "LAMBDA_SIZE",
-            self.controller.LAMBDA_SIZE,
             "slack norm",
             self.slack_norm,
             "dist",
             self.track.length - self.x[0, 0],
+            "\n",
         )
