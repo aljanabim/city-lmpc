@@ -150,11 +150,12 @@ class BaseMPC:
         # self.mpc = opti.to_function("MPC", [x0, x_ref, curvature], [u[:, 0], self.cost, x[:, N], u], [
         #     "xt", "xN", "qN", "intruder_c"], ["u_opt", "cost", "xN", "u"])
 
-    def solve(self):
+    def solve(self, show_infeasibilities=True):
         try:
             self.opti.solve()
         except RuntimeError as e:
-            self.opti.debug.show_infeasibilities()
+            if show_infeasibilities:
+                self.opti.debug.show_infeasibilities()
             raise (e)
         # u_opt = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         u_opt = self.opti.value(self.u[:, [0]])
