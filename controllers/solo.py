@@ -71,10 +71,6 @@ class SoloRelaxedLMPC(BaseMPC):
             + 1e2 * (self.lam_slack.T @ self.lam_slack)
         )
 
-    def set_linear_constraints(self):
-        self.opti.subject_to(self.opti.bounded(self.ulb, self.u, self.uub))
-        self.opti.subject_to(self.opti.bounded(self.xlb, self.x, self.xub))
-
     def set_nonlinear_constraints(self):
         # All lambda must be greater or equal to zero
         self.opti.subject_to(0 <= self.lam)
