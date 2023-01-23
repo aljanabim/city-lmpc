@@ -454,7 +454,7 @@ def generate_greys(n, reverse=False) -> List[str]:
 
 
 def compare_iterations(
-    exp_name, range_start, range_end, track: Track, save=False, step=1
+    exp_name, range_start, range_end, track: Track, save=False, step=1, s_obs=None
 ):
     colors = generate_greys(np.ceil(range_end - range_start + 1) / step, True)
     vehicles = []
@@ -480,6 +480,16 @@ def compare_iterations(
             traj_j["states"].shape[1] - 1,
         )
         color_idx += 1
+    if s_obs is not None:
+        obs_states = ca.DM(traj_j["states"].shape[0], 1)
+        obs_states[0, 0] = s_obs  # set s
+        point_idx = np.argmin(np.abs(track.points_array[2, :] - s_obs))
+        phi_obs = track.points[point_idx].phi_s
+        obs_states[1, 0] = traj_j["states"][1, 0]
+        obs_states[-1, 0] = phi_obs  # set heading angle
+        obs_inputs = ca.DM(traj_j["inputs"].shape[0], 1)
+        obs_vehicle = VehicleData("obs", COLORS["obs"], obs_states, obs_inputs)
+        vehicles.append(obs_vehicle)
 
     if len(vehicles) > 0:
         animate_trajectory(
