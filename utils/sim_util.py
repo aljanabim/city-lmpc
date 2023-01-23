@@ -170,7 +170,7 @@ def compute_ref_trajectory(
     return x_ref, curvature, s_0_arc, phi_0_arc
 
 
-def create_track(x0, y0, phi0, arcs=None, flip=False) -> Track:
+def create_track(x0, y0, phi0, arcs=None, flip=False, J0=False) -> Track:
     """
     Creates the track used in all scenarios.
 
@@ -191,8 +191,14 @@ def create_track(x0, y0, phi0, arcs=None, flip=False) -> Track:
             ArcByLength(0, 4),
             ArcByAngle(1 / np.sqrt(2) / 0.65, 90),
             ArcByLength(0, 0.50),
-            ArcByLength(0, 1.35),
         ]
+
+        if J0:
+            arcs.append(
+                ArcByLength(0, 1.35 + 0.5)
+            )  # add an extra half-meter for J0 vehicle
+        else:
+            arcs.append(ArcByLength(0, 1.35))
     return Track(arcs, x_s0=x0, y_s0=y0, phi_s0=phi0, flip=flip)
 
 
@@ -203,13 +209,14 @@ def setup_solo():
     lane_width = 0.5
     yaw0 = ca.pi
     track = create_track(0, 0, yaw0)
+    track_J0 = create_track(0, 0, yaw0, J0=True)
 
     # Get Model
     x = ca.vertcat(0, -lane_width / 2, 0, yaw0)
     model = SoloFrenetModel(x)
 
-    # Input and state constraints for MPC, +0.5 on s to allow reaching the target
-    xub = ca.vertcat(track.length + 0.5, lane_width - model.WB / 2, 1.5, ca.inf)
+    # Input and state constraints for MPC, +0.5 on s to allow reaching the target and the margin +0.5 for J0
+    xub = ca.vertcat(track.length + 1, lane_width - model.WB / 2, 1.5, ca.inf)
     uub = ca.vertcat(0.75, ca.pi / 4)
 
     # Get trajectory for initial iteration
@@ -222,4 +229,4 @@ def setup_solo():
         ulb=-uub,
         uub=uub,
     )
-    return model, mpc, track
+    return model, mpc, track, track_J0
