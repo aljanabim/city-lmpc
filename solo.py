@@ -14,9 +14,14 @@ if __name__ == "__main__":
 
     Tried to let the cost-to-go also include the full values with lambda, but got similar
     results for J1 and then a bunch of bugs for further iterations.
+    TODO
+    1. Update cost function in LMPC using the ObstacleLMPC cost (with algebraic Sigmoid)
+    2. Update LMPC simulator to give s_final as parameter which is equal to track length
+    2. Use track_J0 to generate J0
+    3. Rerun the LMPC simulator
     """
     EXP_NAME = "solo"
-    model, mpc, track = sim_util.setup_solo()
+    model, mpc, track, track_J0 = sim_util.setup_solo()
     simulator = SoloMPCSimulator(model, mpc, track)
     simulator.EXP_NAME = EXP_NAME
     traj_0 = simulator.load(iteration=0)
