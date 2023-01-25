@@ -176,6 +176,20 @@ class BaseLMPCSimulator(BaseSimulator):
             s = self.SSx[iteration][0, t]
             if s < self.track.length:
                 cost += 1
+            if self.controller.R is not None:
+                # Compute u_diff cost
+                input_cost = 0
+                if t < total_time - 3:
+                    u_diff = (
+                        trajectory["inputs"][:2, t + 1] - trajectory["inputs"][:2, t]
+                    )
+                    input_cost = u_diff.T @ self.controller.R @ u_diff
+                    cost += input_cost
+                # Compute u cost
+                # if t < total_time - 2:
+                #     u = trajectory["inputs"][:2, t]
+                #     cost += u.T @ self.controller.R @ u
+
             self.cost_to_go[iteration][0, t] = cost
 
         # if trajectories are guaranteed to stop before hitting track length
