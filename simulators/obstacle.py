@@ -71,7 +71,8 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         self.controller = controller
         super().__init__(model, controller, track, trajectories, max_iter)
         self.n_points = 20
-        self.n_included_iterations = 3
+        self.n_points_shift = 1
+        # self.n_included_iterations = self.max_iter
         self.phi_obs = None
 
     def reset(self):
@@ -89,16 +90,19 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         stored_cost_to_go = ca.DM()
         stored_states = ca.DM()
         # Lower bound for iterations to include
-        l = max(self.iteration - self.n_included_iterations, 0)
+        # l = max(self.iteration - self.n_included_iterations, 0)
         # Upper bound to iteration to include current iteration excluded
-        j = self.iteration
-        for i in range(l, j):
+        # j = self.iteration
+        # for i in range(l, j):
+        for i in range(self.iteration):
             cost_to_go_i = self.cost_to_go[i]
             states_i = self.SSx[i]
 
             # Limit ranges to ensure they don't exceed size of stored data
             # it_idx_lower = min(self.compute_it_idx(i), cost_to_go_i.shape[1] - 1)
-            point_idx = np.argmin(np.abs(states_i[0, :] - self.x[0, 0])) + 1
+            point_idx = (
+                np.argmin(np.abs(states_i[0, :] - self.x[0, 0])) + self.n_points_shift
+            )
             it_idx_lower = min(point_idx, cost_to_go_i.shape[1] - 1)
             it_idx_upper = min(it_idx_lower + self.n_points, cost_to_go_i.shape[1])
             print(
@@ -108,6 +112,8 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
                 it_idx_upper,
                 "total",
                 cost_to_go_i.shape[1],
+                "cost",
+                cost_to_go_i[0],
             )
 
             stored_cost_to_go = ca.horzcat(
@@ -136,15 +142,9 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
 
         # compute control for all sampled terminal states from save sets
         results = []
+        results_infeasible = []
+        i = 0
         for k in range(stored_cost_to_go.shape[1]):
-            # print(
-            #     "Solving for point",
-            #     k,
-            #     "cost",
-            #     stored_cost_to_go[:, k],
-            #     "state",
-            #     stored_states[:, k],
-            # )
             try:
                 uopt, _, cost, slack_norm = self.controller.get_ctrl(
                     self.x,
@@ -156,16 +156,33 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
                     s_obs=self.S_OBS,
                     s_final=self.track.length,
                 )
-                # print("slack norm", slack_norm)
                 results.append((uopt, cost, slack_norm))
-            except:
                 print(
-                    "Unable to solve for x-xN=",
+                    "Solving for x-xN=",
                     stored_states[:, k] - self.x,
-                    "with k",
+                    "k",
                     k,
+                    "index",
+                    i,
                 )
+                i += 1
+            except:
+                # print(
+                #     "Unable to solve for x-xN=",
+                #     stored_states[:, k] - self.x,
+                #     "with k",
+                #     k,
+                # )
+                uopt = self.controller.opti.value(self.controller.u[:, [0]])
+                cost = self.controller.opti.value(self.controller.cost)
+                results_infeasible.append((uopt, cost, ca.inf))
+
         # Find the best results
+        if len(results) == 0:
+            print("All solutions are infeasible")
+            exit()
+            results = results_infeasible
+
         costs = [result[1] for result in results]
         opt_idx = np.argmin(costs)
         print("Best cost", results[opt_idx][1], "index", opt_idx)
