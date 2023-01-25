@@ -195,16 +195,15 @@ def create_track(x0, y0, phi0, arcs=None, flip=False, J0=False) -> Track:
 
         if J0:
             arcs.append(
-                ArcByLength(0, 1.35 + 0.5)
+                ArcByLength(0, 1.35 + 1)
             )  # add an extra half-meter for J0 vehicle
         else:
             arcs.append(ArcByLength(0, 1.35))
     return Track(arcs, x_s0=x0, y_s0=y0, phi_s0=phi0, flip=flip)
 
 
-def setup_solo():
+def setup_solo(Controller, Q=None, R=None):
     from models.solo import SoloFrenetModel
-    from controllers.solo import SoloMPC
 
     lane_width = 0.5
     yaw0 = ca.pi
@@ -216,14 +215,14 @@ def setup_solo():
     model = SoloFrenetModel(x)
 
     # Input and state constraints for MPC, +0.5 on s to allow reaching the target and the margin +0.5 for J0
-    xub = ca.vertcat(track.length + 1, lane_width - model.WB / 2, 1.5, ca.inf)
+    xub = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 1.5, ca.inf)
     uub = ca.vertcat(0.75, ca.pi / 4)
 
     # Get trajectory for initial iteration
-    mpc = SoloMPC(
+    mpc = Controller(
         model,
-        Q=ca.diag((1, 300, 200, 20)),
-        R=ca.diag((100, 4)),
+        Q=Q if Q is not None else ca.diag((1, 300, 200, 20)),  # (1, 300, 200, 20)
+        R=R if R is not None else ca.diag((100, 4)),  # (100, 4)
         xlb=-xub,
         xub=xub,
         ulb=-uub,

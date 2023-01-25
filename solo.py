@@ -21,7 +21,7 @@ if __name__ == "__main__":
     3. Rerun the LMPC simulator
     """
     EXP_NAME = "solo"
-    model, mpc, track, track_J0 = sim_util.setup_solo()
+    model, mpc, track, track_J0 = sim_util.setup_solo(Controller=SoloMPC)
     simulator = SoloMPCSimulator(model, mpc, track)
     simulator.EXP_NAME = EXP_NAME
     traj_0 = simulator.load(iteration=0)
