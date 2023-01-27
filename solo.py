@@ -20,26 +20,44 @@ if __name__ == "__main__":
     2. Use track_J0 to generate J0
     3. Rerun the LMPC simulator
     """
-    EXP_NAME = "solo"
-    model, mpc, track, track_J0 = sim_util.setup_solo(Controller=SoloMPC)
-    simulator = SoloMPCSimulator(model, mpc, track)
+    # solo+R20L20 converged
+    # solo+R0L100 converged
+    # solo+R0L50 converged
+    # solo+R0L20 converged Best cost 151
+    # solo++R0L20 converged Best cost 150. It uses it_idx as in paper not as in obstacle simulator
+    # Nothing else has non-decreasing performance
+    # solo+R0L18 infeasible
+    # solo+R0L15 does not have decreasing performance
+    # solo+R0L10 does not have decreasing performance
+    # solo+R0L0 does not have decreasing performance
+
+    R = 0
+    L = 20
+    load_until = 2
+
+    EXP_NAME = f"solo++R{R}L{L}"  # ++ lambda e2 + lambda e3
+    model, mpc, track, track_J0, xub_lmpc = sim_util.setup_solo(Controller=SoloMPC)
+    simulator = SoloMPCSimulator(model, mpc, track_J0)
     simulator.EXP_NAME = EXP_NAME
     traj_0 = simulator.load(iteration=0)
     if traj_0 is None:  # if J0 is not stored, run simulator, save, then load it
         traj_0 = simulator.run().save().load()
 
-    print(traj_0["states"].shape)  # => (4, 317) => T0 = 316
-    # track.length => 10.587873909802939
-    # traj_0["states"][0, -1] => 10.59435249
-
-    vis_util.compare_iterations(EXP_NAME, 0, 11, track, step=1)
-    load_until = 11
+    # vis_util.compare_iterations(EXP_NAME, 0, 4, track, step=1)
     trajectories = [simulator.load(j) for j in range(0, load_until + 1)]
 
     # # # Start LMPC learning
     lmpc = SoloRelaxedLMPC(
-        model, Q=None, R=None, xlb=-mpc.xub, xub=mpc.xub, ulb=-mpc.uub, uub=mpc.uub
+        model,
+        Q=None,
+        R=ca.diag((0, R)),
+        xlb=-xub_lmpc,
+        xub=xub_lmpc,
+        ulb=-mpc.uub,
+        uub=mpc.uub,
     )
-    simulator = SoloRelaxedLMPCSimulator(model, lmpc, track, trajectories, max_iter=15)
+    lmpc.L = L
+    simulator = SoloRelaxedLMPCSimulator(model, lmpc, track, trajectories, max_iter=10)
     simulator.EXP_NAME = EXP_NAME
+    print(simulator.T)
     # simulator.run()
