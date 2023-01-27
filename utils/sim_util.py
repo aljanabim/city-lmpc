@@ -102,7 +102,7 @@ def compute_ref_trajectory(
     v_ref: float,
     e_ref: float,
     flipped_ref: bool = False,
-    look_ahead_base=0.55,
+    look_ahead_base=0,
     look_ahead_factor=0,
 ):
     """
@@ -215,17 +215,18 @@ def setup_solo(Controller, Q=None, R=None):
     model = SoloFrenetModel(x)
 
     # Input and state constraints for MPC, +0.5 on s to allow reaching the target and the margin +0.5 for J0
-    xub = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 1.5, ca.inf)
-    uub = ca.vertcat(0.75, ca.pi / 4)
+    xub = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 0.5, ca.inf)
+    uub = ca.vertcat(1.7, ca.pi / 4)
 
+    xub_lmpc = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 0.7, ca.inf)
     # Get trajectory for initial iteration
     mpc = Controller(
         model,
-        Q=Q if Q is not None else ca.diag((1, 300, 200, 20)),  # (1, 300, 200, 20)
-        R=R if R is not None else ca.diag((100, 4)),  # (100, 4)
+        Q=Q if Q is not None else ca.diag((1, 500, 100, 20)),  # (1, 300, 200, 20)
+        R=R if R is not None else ca.diag((2, 1)),  # (100, 4)
         xlb=-xub,
         xub=xub,
         ulb=-uub,
         uub=uub,
     )
-    return model, mpc, track, track_J0
+    return model, mpc, track, track_J0, xub_lmpc
