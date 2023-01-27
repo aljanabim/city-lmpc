@@ -3,7 +3,7 @@ import casadi as ca
 from utils import sim_util, vis_util
 from models.solo import SoloFrenetModel
 from controllers.solo import SoloMPC
-from controllers.obstacle import ObstacleLMPC
+from controllers.obstacle import ObstacleLMPC, ObstacleMPC
 from models.track import Track
 from simulators.base import BaseSimulator, BaseLMPCSimulator
 import time
@@ -16,12 +16,13 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
         self.controller = controller
         super().__init__(model, controller, track)
         self.phi_obs = None
+        self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def step(self):
         if (
             self.S_OBS - self.model.LENGTH - 1  # 1 [m] margin
             < self.x[0, 0]
-            < self.S_OBS + self.model.LENGTH
+            < self.S_OBS + self.model.LENGTH / 2
         ):  # switch condition
             e_ref = -self.model.x0[1, 0]
         else:
@@ -36,8 +37,9 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
             e_ref=e_ref,
         )
         uopt, _, _ = self.controller.get_ctrl(
-            self.x, x_ref, curvature, s_0_arc, phi_0_arc
+            self.x, x_ref, curvature, s_0_arc, phi_0_arc, u_prev=self.u_prev
         )
+        self.u_prev = uopt
         u = ca.vertcat(uopt, curvature[0], s_0_arc[0], phi_0_arc[0])
         # State Feedback Step
         self.x = self.model.sim(1, u=u, input_noise=False, state_noise=False)
@@ -55,6 +57,36 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
             vis_util.VehicleData("ego", vis_util.COLORS["ego"], states, inputs),
             vis_util.VehicleData("obs", vis_util.COLORS["obs"], obs_states, obs_inputs),
         ]
+
+        # Check collision avoidance with rect ellipse
+
+        deg = 2
+        L = self.model.LENGTH
+        W = self.model.WIDTH
+        dL = (2 ** (1 / deg) - 1) * L
+        dW = W / L * dL
+        # center of ego
+        ego_c = self.x[0, :] + self.model.LENGTH / 2 - self.model.BACKTOWHEEL
+        # center of obs
+        obs_c = self.S_OBS + self.model.LENGTH / 2 - self.model.BACKTOWHEEL
+        # lateral deviations of ego
+        ego_e = self.x[1, :]
+        # lateral deviations of obs
+        obs_e = self.model.x0[1, 0]
+        # rect ellipse
+        rectellipse_s = (2 * (ego_c - obs_c) / (2 * L + dL)) ** deg
+        rectellipse_e = (2 * (ego_e - obs_e) / (2 * W + dW)) ** deg
+        rectellipse = rectellipse_s + rectellipse_e
+        if rectellipse < 1:
+            print(
+                "OOOOopps rectellipse constraint not satisfied",
+                rectellipse,
+                rectellipse >= 1,
+            )
+            exit()
+
+    def post_step(self):
+        return super().post_step()
 
 
 class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
@@ -74,6 +106,7 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         self.n_points_shift = 1
         # self.n_included_iterations = self.max_iter
         self.phi_obs = None
+        self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def reset(self):
         super().reset()
@@ -155,6 +188,7 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
                     terminal_state=stored_states[:, k],
                     s_obs=self.S_OBS,
                     s_final=self.track.length,
+                    u_prev=self.u_prev,
                 )
                 results.append((uopt, cost, slack_norm))
                 print(
@@ -187,6 +221,7 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         opt_idx = np.argmin(costs)
         print("Best cost", results[opt_idx][1], "index", opt_idx)
         uopt = results[opt_idx][0]
+        self.u_prev = uopt
         self.slack_norm = results[opt_idx][2]
 
         u = ca.vertcat(uopt, curvature[0], s_0_arc[0], phi_0_arc[0])
