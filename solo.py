@@ -31,6 +31,8 @@ if __name__ == "__main__":
     # solo+R0L10 does not have decreasing performance
     # solo+R0L0 does not have decreasing performance
 
+    # Conclusion on N, I tried N=12,15,20 and all lead to infeasible solutions. Somehow 7 seems to be the sweet spot
+
     R = 0
     L = 20
     load_until = 2
