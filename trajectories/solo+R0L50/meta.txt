@@ -1,0 +1,3 @@
+exp_name: solo+
+s_obs: 0.0
+s_ego_0: 0
