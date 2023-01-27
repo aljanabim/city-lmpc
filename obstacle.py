@@ -2,6 +2,7 @@ import casadi as ca
 import numpy as np
 from controllers.obstacle import ObstacleLMPC, ObstacleMPC
 from simulators.solo import SoloMPCSimulator, SoloRelaxedLMPCSimulator
+from controllers.solo import SoloMPC
 from simulators.obstacle import ObstacleLMPCSimulator, ObstacleMPCSimulator
 from utils import sim_util, vis_util
 
@@ -9,7 +10,7 @@ from utils import sim_util, vis_util
 if __name__ == "__main__":
     EXP_NAME = "obstacle"
     # use same model track and solo as in the solo scenario
-    model, mpc, track, track_J0 = sim_util.setup_solo(ObstacleMPC, R=ca.diag((10, 50)))
+    model, mpc, track, track_J0, xub_lmpc = sim_util.setup_solo(SoloMPC)
     s_obs = track.length / 2
     simulator = ObstacleMPCSimulator(model, mpc, track_J0)
     simulator.EXP_NAME = EXP_NAME
@@ -18,6 +19,7 @@ if __name__ == "__main__":
     traj_0 = simulator.load(iteration=0)
     if traj_0 is None:  # if J0 is not stored, run simulator, save, then load it
         traj_0 = simulator.run().save().load()
+    quit()
 
     # vis_util.compare_iterations(EXP_NAME, 0, 0, track, step=1, s_obs=s_obs)
     # quit()
