@@ -59,6 +59,9 @@ class TrackPoint:
 
 
 class Track:
+    POINT_DENSITY = None  # [#points/meter]
+    N_POINTS = None
+
     def __init__(
         self,
         arcs: List[Union[ArcByLength, ArcByAngle]],
@@ -66,7 +69,6 @@ class Track:
         y_s0=0,
         phi_s0=0,
         flip=False,
-        POINT_DENSITY=1000,
     ):
         self.arcs = arcs
         self.x_s0 = x_s0
@@ -74,7 +76,6 @@ class Track:
         self.phi_s0 = phi_s0
         self.e_shift = 0
         self.flip = flip
-        self.POINT_DENSITY = POINT_DENSITY  # [#points/meter]
 
         self.points, self.points_array, self._track_length = self._create_track()
         self.R, self.T = self._create_transformation_components()
@@ -109,7 +110,14 @@ class Track:
                     length = abs(arc.radius) * arc.to_rad  # [m]
                 track_length += length
 
-                n_points = int(length * self.POINT_DENSITY)
+                assert (
+                    self.N_POINTS is not None or self.POINT_DENSITY is not None
+                ), "N_POINTS or POINT_DENSITY must be set"
+                n_points = (
+                    self.N_POINTS
+                    if self.N_POINTS is not None
+                    else int(length * self.POINT_DENSITY)
+                )
                 delta_L = length / n_points
                 delta_theta = delta_L * arc.curvature
 
