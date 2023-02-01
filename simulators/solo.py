@@ -8,17 +8,17 @@ from simulators.base import BaseSimulator, BaseLMPCSimulator
 
 
 class SoloMPCSimulator(BaseSimulator):  # Using a Frenet Model
-    def __init__(self, model: SoloFrenetModel, controller: SoloMPC, track):
+    def __init__(self, model: SoloFrenetModel, controller: SoloMPC, track, track_ctrl):
         # Override the types for model and controller (Any by default)
         self.model = model
         self.controller = controller
-        super().__init__(model, controller, track)
+        super().__init__(model, controller, track, track_ctrl)
         self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def step(self):
         x_ref, curvature, s_0_arc, phi_0_arc = sim_util.compute_ref_trajectory(
             x=self.x,
-            track=self.track,
+            track=self.track_ctrl,
             dt=self.model.dt,
             N=self.controller.N,
             v_ref=0.5,
@@ -36,6 +36,7 @@ class SoloMPCSimulator(BaseSimulator):  # Using a Frenet Model
         self.vehicles = [
             vis_util.VehicleData("car", vis_util.COLORS["ego"], states, inputs)
         ]
+        print(self.x[2, 0], "m/s")
 
 
 class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
@@ -44,13 +45,14 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         model: SoloFrenetModel,
         controller: SoloRelaxedLMPC,
         track,
+        track_ctrl,
         trajectories,
         max_iter,
     ):
         # Override the types for model and controller (Any by default)
         self.model = model
         self.controller = controller
-        super().__init__(model, controller, track, trajectories, max_iter)
+        super().__init__(model, controller, track, track_ctrl, trajectories, max_iter)
         self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def reset(self):
@@ -68,7 +70,8 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         for j, (cost_to_go_j, states_j) in enumerate(
             zip(self.cost_to_go.values(), self.SSx.values())
         ):
-            it_idx = self.compute_it_idx(j)
+            # it_idx = self.compute_it_idx(j)
+            it_idx = max(np.argmin(np.abs(states_j[0, :] - self.x[0, 0])) - 12, 0)
             print(
                 "idx",
                 it_idx,
@@ -81,14 +84,10 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
             stored_states = ca.horzcat(stored_states, states_j[:, it_idx:])
         return stored_cost_to_go, stored_states
 
-    def keep_running(self):
-        return self.x[0, 0] < self.track.length
-        # return self.slack_norm > 1e-8
-
     def step(self):
         _, curvature, s_0_arc, phi_0_arc = sim_util.compute_ref_trajectory(
             x=self.x,
-            track=self.track,
+            track=self.track_ctrl,
             dt=self.model.dt,
             N=self.controller.N,
             v_ref=0.5,
@@ -117,7 +116,7 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
 
         states, inputs = self.model.get_trajectory()
         self.vehicles = [
-            vis_util.VehicleData("car", vis_util.COLORS["ego"], states, inputs)
+            vis_util.VehicleData("ego", vis_util.COLORS["ego"], states, inputs)
         ]
 
     def post_step(self):
@@ -133,4 +132,7 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
             self.slack_norm,
             "dist",
             self.track.length - self.x[0, 0],
+            "v",
+            self.x[2, 0],
+            "m/s",
         )

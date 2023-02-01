@@ -195,8 +195,8 @@ def create_track(x0, y0, phi0, arcs=None, flip=False, J0=False) -> Track:
 
         if J0:
             arcs.append(
-                ArcByLength(0, 1.35 + 1)
-            )  # add an extra half-meter for J0 vehicle
+                ArcByLength(0, 1.35 + 2)
+            )  # add an extra 2 meters for J0 vehicle
         else:
             arcs.append(ArcByLength(0, 1.35))
     return Track(arcs, x_s0=x0, y_s0=y0, phi_s0=phi0, flip=flip)
@@ -207,7 +207,8 @@ def setup_solo(Controller, Q=None, R=None):
 
     lane_width = 0.5
     yaw0 = ca.pi
-    track = create_track(0, 0, yaw0)
+    track_vis = create_track(0, 0, yaw0)
+    track_ctrl = create_track(0, 0, yaw0)
     track_J0 = create_track(0, 0, yaw0, J0=True)
 
     # Get Model
@@ -215,10 +216,10 @@ def setup_solo(Controller, Q=None, R=None):
     model = SoloFrenetModel(x)
 
     # Input and state constraints for MPC, +0.5 on s to allow reaching the target and the margin +0.5 for J0
-    xub = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 0.5, ca.inf)
+    xub = ca.vertcat(track_ctrl.length * 2, lane_width - model.WB / 2, 0.5, ca.inf)
     uub = ca.vertcat(1.7, ca.pi / 4)
 
-    xub_lmpc = ca.vertcat(track.length + 2, lane_width - model.WB / 2, 0.7, ca.inf)
+    xub_lmpc = ca.vertcat(track_ctrl.length * 2, lane_width - model.WB / 2, 0.7, ca.inf)
     # Get trajectory for initial iteration
     mpc = Controller(
         model,
@@ -229,4 +230,4 @@ def setup_solo(Controller, Q=None, R=None):
         ulb=-uub,
         uub=uub,
     )
-    return model, mpc, track, track_J0, xub_lmpc
+    return model, mpc, track_vis, track_ctrl, track_J0, xub_lmpc

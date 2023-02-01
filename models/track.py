@@ -60,7 +60,6 @@ class TrackPoint:
 
 class Track:
     POINT_DENSITY = None  # [#points/meter]
-    N_POINTS = None
 
     def __init__(
         self,
@@ -69,6 +68,7 @@ class Track:
         y_s0=0,
         phi_s0=0,
         flip=False,
+        point_density=1000,
     ):
         self.arcs = arcs
         self.x_s0 = x_s0
@@ -76,7 +76,17 @@ class Track:
         self.phi_s0 = phi_s0
         self.e_shift = 0
         self.flip = flip
+        self.POINT_DENSITY = point_density
 
+        self.points, self.points_array, self._track_length = self._create_track()
+        self.R, self.T = self._create_transformation_components()
+
+    def update_n_points(self, n_points):
+        assert self.length != 0, "Length cannot be zero"
+        self.POINT_DENSITY = n_points / self.length
+        self.update_track()
+
+    def update_track(self):
         self.points, self.points_array, self._track_length = self._create_track()
         self.R, self.T = self._create_transformation_components()
 
@@ -110,14 +120,9 @@ class Track:
                     length = abs(arc.radius) * arc.to_rad  # [m]
                 track_length += length
 
-                assert (
-                    self.N_POINTS is not None or self.POINT_DENSITY is not None
-                ), "N_POINTS or POINT_DENSITY must be set"
-                n_points = (
-                    self.N_POINTS
-                    if self.N_POINTS is not None
-                    else int(length * self.POINT_DENSITY)
-                )
+                assert self.POINT_DENSITY is not None, "POINT_DENSITY must be set"
+                n_points = int(np.ceil(length * self.POINT_DENSITY))
+
                 delta_L = length / n_points
                 delta_theta = delta_L * arc.curvature
 

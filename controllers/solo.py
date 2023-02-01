@@ -83,6 +83,17 @@ class SoloRelaxedLMPC(SoloMPC):
             s_err = self.x[0, t] - self.s_final
             # Use algebraic sigmoid to define a smooth cost function=11
             self.cost += (1 / 2) * (k * s_err / ca.sqrt(1 + (k * s_err) ** 2) + 1)
+            if self.R is not None:
+                self.cost += self.u[:, t].T @ self.R @ self.u[:, t]
+
+        # self.cost += self.lam @ self.stored_cost_to_go.T + self.L * (
+        #     self.lam_slack.T @ self.lam_slack
+        # )
+        # TODO this is used in the results denoted with - and with + we use the one above
+        # it gives resonable results despite ignore the N and R costs.
+        # With the full cost, we get similar results, but it takes
+        # some more tuning to get it to work. In the interest of time
+        # this is skipped.
         self.cost = self.lam @ self.stored_cost_to_go.T + self.L * (
             self.lam_slack.T @ self.lam_slack
         )

@@ -11,10 +11,13 @@ class BaseSimulator:
     _EXP_NAME = "base"
     _S_OBS = 0.0
 
-    def __init__(self, model: BaseModel, controller: BaseMPC, track: Track):
+    def __init__(
+        self, model: BaseModel, controller: BaseMPC, track: Track, track_ctrl: Track
+    ):
         self.model = model
         self.controller = controller
         self.track = track
+        self.track_ctrl = track_ctrl
 
         self.reset()
         self.exp_meta = sim_util.ExpMeta(self._EXP_NAME, self._S_OBS, self.x[0, 0])
@@ -50,7 +53,7 @@ class BaseSimulator:
         """
         Stop condition for the simulator. Returns False, when the simulator should stop.
         """
-        return self.x[0, 0] <= self.track.length
+        return self.x[0, 0] <= self.track_ctrl.length
 
     def step(self):
         """
@@ -135,10 +138,11 @@ class BaseLMPCSimulator(BaseSimulator):
         model,
         controller,
         track: Track,
+        track_ctrl: Track,
         trajectories: Tuple[Dict],
         max_iter: int,
     ):
-        super().__init__(model, controller, track)
+        super().__init__(model, controller, track, track_ctrl)
         self.trajectories = trajectories
         self.max_iter = max_iter
         self._parse_trajectories()
@@ -174,21 +178,23 @@ class BaseLMPCSimulator(BaseSimulator):
         cost = 0
         for t in range(total_time - 1, -1, -1):
             s = self.SSx[iteration][0, t]
-            if s < self.track.length:
+            v = self.SSx[iteration][2, t]
+            # if (s < self.track.length and v > 1e-2) or t == 0:
+            if s <= self.track.length:
                 cost += 1
-            if self.controller.R is not None:
-                # Compute u_diff cost
-                # input_cost = 0
-                # if t < total_time - 3:
-                # u_diff = (
-                #     trajectory["inputs"][:2, t + 1] - trajectory["inputs"][:2, t]
-                # )
-                # input_cost = u_diff.T @ self.controller.R @ u_diff
-                # cost += input_cost
-                # Compute u cost
-                if t < total_time - 2:
-                    u = trajectory["inputs"][:2, t]
-                    cost += u.T @ self.controller.R @ u
+                if self.controller.R is not None:
+                    # Compute u_diff cost
+                    # input_cost = 0
+                    # if t < total_time - 3:
+                    # u_diff = (
+                    #     trajectory["inputs"][:2, t + 1] - trajectory["inputs"][:2, t]
+                    # )
+                    # input_cost = u_diff.T @ self.controller.R @ u_diff
+                    # cost += input_cost
+                    # Compute u cost
+                    if t < total_time - 2:
+                        u = trajectory["inputs"][:2, t]
+                        cost += u.T @ self.controller.R @ u
 
             self.cost_to_go[iteration][0, t] = cost
 
@@ -198,6 +204,11 @@ class BaseLMPCSimulator(BaseSimulator):
         # self.cost_to_go[iteration] = np.arange(T_iteration, -1, -1)[np.newaxis, :]
 
         self.T[iteration] = self.cost_to_go[iteration][0, 0]
+
+        # Update number of points in track_ctrl the track used for the control references and vehicle parameters
+        opt_time = int(np.min([states.shape[1] for states in self.SSx.values()]))
+        print("New track_ctrl length of", opt_time, "points")
+        self.track_ctrl.update_n_points(opt_time)
 
     def keep_iterating(self):
         return self.iteration <= self.max_iter

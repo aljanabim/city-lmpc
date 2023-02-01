@@ -1,0 +1,3 @@
+exp_name: solo-R100L100N15
+s_obs: 0.0
+s_ego_0: 0

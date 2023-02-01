@@ -2,19 +2,18 @@ import numpy as np
 import casadi as ca
 from utils import sim_util, vis_util
 from models.solo import SoloFrenetModel
-from controllers.solo import SoloMPC
-from controllers.obstacle import ObstacleLMPC, ObstacleMPC
+from controllers.solo import SoloMPC, SoloRelaxedLMPC
 from models.track import Track
 from simulators.base import BaseSimulator, BaseLMPCSimulator
-import time
+from controllers.obstacle_old import ObstacleLMPC
 
 
 class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
-    def __init__(self, model: SoloFrenetModel, controller: SoloMPC, track):
+    def __init__(self, model: SoloFrenetModel, controller: SoloMPC, track, track_ctrl):
         # Override the types for model and controller (Any by default)
         self.model = model
         self.controller = controller
-        super().__init__(model, controller, track)
+        super().__init__(model, controller, track, track_ctrl)
         self.phi_obs = None
         self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
@@ -30,7 +29,7 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
 
         x_ref, curvature, s_0_arc, phi_0_arc = sim_util.compute_ref_trajectory(
             x=self.x,
-            track=self.track,
+            track=self.track_ctrl,
             dt=self.model.dt,
             N=self.controller.N,
             v_ref=0.5,
@@ -85,8 +84,7 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
             )
             exit()
 
-    def post_step(self):
-        return super().post_step()
+        print(self.x[2, 0], "m/s")
 
 
 class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
@@ -95,15 +93,16 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         model: SoloFrenetModel,
         controller: ObstacleLMPC,
         track,
+        track_ctrl,
         trajectories,
         max_iter,
     ):
         # Override the types for model and controller (Any by default)
         self.model = model
         self.controller = controller
-        super().__init__(model, controller, track, trajectories, max_iter)
+        super().__init__(model, controller, track, track_ctrl, trajectories, max_iter)
         self.n_points = 20
-        self.n_points_shift = 1
+        self.n_points_shift = 5
         # self.n_included_iterations = self.max_iter
         self.phi_obs = None
         self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
@@ -112,21 +111,10 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         super().reset()
         self.slack_norm = ca.inf
 
-    def compute_it_idx(self, iteration):
-        T_opt = min(self.T.values())
-        # int to ensure it can be used as index
-        return int(min(self.T[iteration] + self.time_step - T_opt, self.T[iteration]))
-        # + 0
-        # * self.controller.N  # added to give more realistic look-ahead (N steps away no at s)
-
     def get_stored_data(self):
         stored_cost_to_go = ca.DM()
         stored_states = ca.DM()
-        # Lower bound for iterations to include
-        # l = max(self.iteration - self.n_included_iterations, 0)
-        # Upper bound to iteration to include current iteration excluded
-        # j = self.iteration
-        # for i in range(l, j):
+
         for i in range(self.iteration):
             cost_to_go_i = self.cost_to_go[i]
             states_i = self.SSx[i]
@@ -158,13 +146,10 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
 
         return stored_cost_to_go, stored_states
 
-    def keep_running(self):
-        return self.x[0, 0] < self.track.length
-
     def step(self):
         _, curvature, s_0_arc, phi_0_arc = sim_util.compute_ref_trajectory(
             x=self.x,
-            track=self.track,
+            track=self.track_ctrl,
             dt=self.model.dt,
             N=self.controller.N,
             v_ref=0.5,
@@ -173,7 +158,6 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         stored_cost_to_go, stored_states = self.get_stored_data()
         # no need to rebuild controller optimizer here with self.controller.build_optimizer()
 
-        # compute control for all sampled terminal states from save sets
         results = []
         results_infeasible = []
         i = 0
@@ -246,12 +230,14 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
         super().post_step()
         print(
             "J-1 time",
-            self.T[self.iteration - 1],
+            self.cost_to_go[self.iteration - 1][0, 0],
             "J time",
             self.time_step,
             "slack norm",
             self.slack_norm,
             "dist",
             self.track.length - self.x[0, 0],
-            "\n",
+            "v",
+            self.x[2, 0],
+            "m/s",
         )

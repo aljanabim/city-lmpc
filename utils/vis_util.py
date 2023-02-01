@@ -290,25 +290,32 @@ def animate_trajectory(
             x, y, steering = 0, 0, 0
             # Get real state values
             if vehicle.states is not None:
-                # get last index for vehicle
-                k = min(t, vehicle.states.shape[1] - 1)
-                s = vehicle.states[0, k]
-                e = vehicle.states[1, k]
-                x, y = track.to_global(s=s, e=e)
-                yaw = vehicle.states[-1, k]
+
+                steps = vehicle.states.shape[1]
+                s = vehicle.states[0, :]
+                e = vehicle.states[1, :]
+                x = np.zeros(steps)
+                y = np.zeros(steps)
+                for i in range(steps):
+                    x[i], y[i] = track.to_global(s[i], e[i])
+                yaw = vehicle.states[-1, :]
             # Get real input values
             if vehicle.inputs is not None:
-                # get last index for vehicle
-                k = min(t, vehicle.inputs.shape[1] - 1)
-                steering = vehicle.inputs[1, k]
+                steering = vehicle.inputs[1, :]
+
+            ts = min(t, vehicle.states.shape[1] - 1)
+            tu = min(t, vehicle.inputs.shape[1] - 1)
             plot_car(
-                x,
-                y,
-                yaw,
-                steering,
+                x[ts],
+                y[ts],
+                yaw[ts],
+                steering[tu],
                 color=vehicle.color,
                 label=vehicle.label,
             )
+            # plot path of vehicle too
+            plt.plot(x[:t], y[:t], color=vehicle.color)
+
         # Plot track
         x_track, y_track = track.cartesian
         plt.plot(x_track, y_track)
@@ -325,13 +332,14 @@ def animate_trajectory(
             plt.cla()
             for vehicle in vehicles:
                 if vehicle.inputs is not None:
+                    tu = min(t, vehicle.inputs.shape[1] - 1)
                     plt.plot(
-                        vehicle.inputs[0, :t],
+                        vehicle.inputs[0, :tu],
                         label=f"{vehicle.label} " + r"$v_u$",
                         color=vehicle.color,
                     )
                     plt.plot(
-                        vehicle.inputs[1, :t],
+                        vehicle.inputs[1, :tu],
                         "--",
                         color=vehicle.color,
                         label=f"{vehicle.label} " + r"$\delta$",
@@ -345,7 +353,9 @@ def animate_trajectory(
             plt.savefig(path.join(dest_folder, filename), dpi=dpi)
             plt.close()
         else:
-            plt.pause(0.05)
+            plt.pause(0.1)
+    if not save:
+        plt.show()
     if save:
         # Prolong the final frame
         for i in range(10):
@@ -363,9 +373,7 @@ def animate_trajectory(
 
 
 def plot_trajectory(
-    track: Track,
-    vehicles: list[VehicleData],
-    plot_input=False,
+    track: Track, vehicles: list[VehicleData], plot_input=False, lane_width=0.5  # m
 ):
     """Very similar to animate_trajectory without tqdm and the ability to save the plots into an animation file.
     plot_trajectory just shows each frame with a 0.01 pause.
@@ -407,7 +415,7 @@ def plot_trajectory(
         plt.plot(x, y, color=vehicle.color)
     # Plot track
     x_track, y_track = track.cartesian
-    plt.plot(x_track, y_track)
+    plt.plot(x_track, y_track, color="#777")
 
     plt.axis("equal")
     plt.legend()
@@ -454,12 +462,20 @@ def generate_greys(n, reverse=False) -> List[str]:
 
 
 def compare_iterations(
-    exp_name, range_start, range_end, track: Track, save=False, step=1, s_obs=None
+    exp_name,
+    range_start,
+    range_end,
+    track: Track,
+    save=False,
+    step=1,
+    s_obs=None,
+    plot_input=True,
 ):
     colors = generate_greys(np.ceil(range_end - range_start + 1) / step, True)
     vehicles = []
     color_idx = 0
     exp_meta = sim_util.ExpMeta(exp_name, 0, 0)
+    state = None
     for j in range(range_start, range_end + 1, step):
         traj_j = sim_util.load_trajectory(exp_meta, f"J{j}")
         if traj_j is None:
@@ -477,7 +493,7 @@ def compare_iterations(
             "s_f",
             track.length - traj_j["states"][0, -1],
             "cost",
-            traj_j["states"].shape[1] - 1,
+            sum(abs(traj_j["states"][0, :] <= track.length)),
         )
         color_idx += 1
     if s_obs is not None:
@@ -498,4 +514,5 @@ def compare_iterations(
             vehicles,
             animation_filename=f"{exp_name}_J{range_start}-{range_end}",
             save=save,
+            plot_input=plot_input,
         )

@@ -1,27 +1,20 @@
-import numpy as np
 import casadi as ca
 from controllers.base import BaseMPC
 from controllers.solo import SoloMPC
 
+
 # For iteration 0 we use SoloMPC in this scenario too
 
 
-class ObstacleMPC(SoloMPC):
-    def set_cost(self):
-        # if self.R is not None:
-        #     for t in range(self.N - 1):
-        #         u_diff = self.u[:, t + 1] - self.u[:, t]
-        #         self.cost += u_diff.T @ self.R @ u_diff
-        return super().set_cost()
-
-
 class ObstacleLMPC(SoloMPC):
+    L = 20
+
     # Uses the SoloFrenetModel
 
     def set_variables(self):
         self.x = self.opti.variable(self.n_states, self.N + 1)
         self.u = self.opti.variable(self.n_inputs, self.N)  # For multi-shooting
-        # self.terminal_state_slack = self.opti.variable(self.n_states, 1)
+        self.terminal_state_slack = self.opti.variable(self.n_states, 1)
 
     def set_parameters(self):
         self.curvature = self.opti.parameter(1, self.N)
@@ -42,26 +35,17 @@ class ObstacleLMPC(SoloMPC):
             s_err = self.x[0, t] - self.s_final
             # Use algebraic sigmoid to define a smooth cost function=11
             self.cost += (1 / 2) * (k * s_err / ca.sqrt(1 + (k * s_err) ** 2) + 1)
-        # Input cost
-        # if self.R is not None:
-        #     for t in range(self.N):
-        #         self.cost += self.u[:, t].T @ self.R @ self.u[:, t]
-        # if self.R is not None:
-        #     for t in range(self.N - 1):
-        #         u_diff = self.u[:, t + 1] - self.u[:, t]
-        #         self.cost += u_diff.T @ self.R @ u_diff
+            if self.R is not None:
+                self.cost += self.u[:, t].T @ self.R @ self.u[:, t]
 
-        # terminal cost
         self.cost += self.terminal_cost
-
-        # self.cost = self.N + self.terminal_cost
-        # self.cost += 1e3 * (self.terminal_state_slack.T @ self.terminal_state_slack)
+        self.cost += self.L * (self.terminal_state_slack.T @ self.terminal_state_slack)
 
     def set_nonlinear_constraints(self):
         # Terminal state constraint
         # self.opti.subject_to(self.x[:, self.N] == self.terminal_state)
         self.opti.subject_to(
-            # self.terminal_state_slack +
+            self.terminal_state_slack +
             #
             self.x[:, self.N]
             == self.terminal_state
@@ -109,7 +93,7 @@ class ObstacleLMPC(SoloMPC):
         self.opti.set_value(self.s_final, s_final)
         self.opti.set_value(self.u_prev, u_prev)
         u_pred, x_pred, cost = self.solve(show_infeasibilities=False)
-        # slack_value = self.opti.value(self.terminal_state_slack)
-        # slack_norm = slack_value.T @ slack_value
-        slack_norm = 0
+        slack_value = self.opti.value(self.terminal_state_slack)
+        slack_norm = slack_value.T @ slack_value
+        # slack_norm = 0
         return u_pred, x_pred, cost, slack_norm

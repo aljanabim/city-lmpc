@@ -31,35 +31,45 @@ if __name__ == "__main__":
     # solo+R0L10 does not have decreasing performance
     # solo+R0L0 does not have decreasing performance
 
+    # solo-R(0, 0)L100N7 converged from 216 to 155
+
     # Conclusion on N, I tried N=12,15,20 and all lead to infeasible solutions. Somehow 7 seems to be the sweet spot
 
-    R = 0
-    L = 20
-    load_until = 2
+    R = (0, 0)
+    L = 500
+    N = 15
+    load_until = 7
 
-    EXP_NAME = f"solo++R{R}L{L}"  # ++ lambda e2 + lambda e3
-    model, mpc, track, track_J0, xub_lmpc = sim_util.setup_solo(Controller=SoloMPC)
-    simulator = SoloMPCSimulator(model, mpc, track_J0)
+    EXP_NAME = f"solo+R{R}L{L}N{N}"
+    model, mpc, track_vis, track_ctrl, track_J0, xub_lmpc = sim_util.setup_solo(
+        Controller=SoloMPC
+    )
+    track_J0.update_n_points(205)
+    simulator = SoloMPCSimulator(model, mpc, track_J0, track_J0)
     simulator.EXP_NAME = EXP_NAME
     traj_0 = simulator.load(iteration=0)
     if traj_0 is None:  # if J0 is not stored, run simulator, save, then load it
         traj_0 = simulator.run().save().load()
 
-    # vis_util.compare_iterations(EXP_NAME, 0, 4, track, step=1)
+    # vis_util.compare_iterations(EXP_NAME, 0, 6, track_vis, step=1)
+    # quit()
     trajectories = [simulator.load(j) for j in range(0, load_until + 1)]
 
     # # # Start LMPC learning
     lmpc = SoloRelaxedLMPC(
         model,
         Q=None,
-        R=ca.diag((0, R)),
+        R=ca.diag(R),
         xlb=-xub_lmpc,
         xub=xub_lmpc,
         ulb=-mpc.uub,
         uub=mpc.uub,
+        N=N,
     )
     lmpc.L = L
-    simulator = SoloRelaxedLMPCSimulator(model, lmpc, track, trajectories, max_iter=10)
+    simulator = SoloRelaxedLMPCSimulator(
+        model, lmpc, track_vis, track_ctrl, trajectories, max_iter=10
+    )
     simulator.EXP_NAME = EXP_NAME
-    print(simulator.T)
-    # simulator.run()
+    simulator.track_ctrl.update_n_points(155)
+    simulator.run()

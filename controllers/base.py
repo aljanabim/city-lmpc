@@ -47,11 +47,11 @@ class BaseMPC:
             "print_time": False,
         }
         s_opts = {
-            "max_iter": 150,
+            "max_iter": 750,
             "print_level": 1,
-            #   "mu_strategy": "adaptive",
-            #   "mu_init": 1e-5,
-            #   "mu_min": 1e-15,
+            # "mu_strategy": "adaptive",
+            # "mu_init": 1e-5,
+            # "mu_min": 1e-15,
             "fixed_variable_treatment": "make_constraint",
             "barrier_tol_factor": 1,
         }

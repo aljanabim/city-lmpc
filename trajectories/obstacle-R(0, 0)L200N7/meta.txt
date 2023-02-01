@@ -1,0 +1,3 @@
+exp_name: obstacle-R(0, 0)L200N7
+s_obs: 5.293936954901469
+s_ego_0: 0
