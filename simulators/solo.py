@@ -58,6 +58,7 @@ class SoloRelaxedLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
     def reset(self):
         super().reset()
         self.slack_norm = ca.inf
+        self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def compute_it_idx(self, iteration):
         T_opt = min(self.T.values())

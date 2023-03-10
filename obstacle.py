@@ -34,6 +34,32 @@ if __name__ == "__main__":
         traj_0 = simulator.run().save().load()
     # quit()
 
+    traj = simulator.load(iteration=9)
+
+    vis_util.animate_trajectory(
+        simulator.exp_meta,
+        track_vis,
+        [
+            vis_util.VehicleData(
+                "ego",
+                vis_util.COLORS["ego"],
+                traj["states"][:4, :],
+                traj["inputs"],
+            ),
+            vis_util.VehicleData(
+                "obs",
+                vis_util.COLORS["obs"],
+                ca.DM([track_vis.length / 2, -0.25, 0, ca.pi / 2]),
+                None,
+            ),
+        ],
+        plot_input=True,
+        save=True,
+        animation_filename="J9",
+    )
+
+    quit()
+
     vis_util.compare_iterations(EXP_NAME, 0, 9, track_vis, step=1, s_obs=s_obs)
     quit()
     trajectories = [simulator.load(j) for j in range(0, load_until + 1)]

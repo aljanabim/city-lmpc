@@ -1,0 +1,3 @@
+exp_name: oncoming-solo-L200N7-wait
+s_obs: 6.2939369549014685
+s_ego_0: 1

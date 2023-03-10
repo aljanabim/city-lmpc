@@ -1,0 +1,3 @@
+exp_name: oncoming-solo-L1N15T80-sneak
+s_obs: 5.293936954901469
+s_ego_0: 0

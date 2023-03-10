@@ -302,14 +302,14 @@ def animate_trajectory(
             # Get real input values
             if vehicle.inputs is not None:
                 steering = vehicle.inputs[1, :]
+                tu = min(t, vehicle.inputs.shape[1] - 1)
 
             ts = min(t, vehicle.states.shape[1] - 1)
-            tu = min(t, vehicle.inputs.shape[1] - 1)
             plot_car(
                 x[ts],
                 y[ts],
                 yaw[ts],
-                steering[tu],
+                steering[tu] if vehicle.inputs is not None else 0,
                 color=vehicle.color,
                 label=vehicle.label,
             )

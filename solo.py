@@ -36,11 +36,11 @@ if __name__ == "__main__":
     # Conclusion on N, I tried N=12,15,20 and all lead to infeasible solutions. Somehow 7 seems to be the sweet spot
 
     R = (0, 0)
-    L = 500
+    L = 100
     N = 15
-    load_until = 7
+    load_until = 6
 
-    EXP_NAME = f"solo+R{R}L{L}N{N}"
+    EXP_NAME = f"solo-R{R}L{L}N{N}"
     model, mpc, track_vis, track_ctrl, track_J0, xub_lmpc = sim_util.setup_solo(
         Controller=SoloMPC
     )
@@ -55,6 +55,31 @@ if __name__ == "__main__":
     # quit()
     trajectories = [simulator.load(j) for j in range(0, load_until + 1)]
 
+    traj = trajectories[0]
+
+    vis_util.animate_trajectory(
+        simulator.exp_meta,
+        track_vis,
+        [
+            vis_util.VehicleData(
+                "ego",
+                vis_util.COLORS["ego"],
+                traj["states"][:4, :],
+                traj["inputs"],
+            ),
+            # vis_util.VehicleData(
+            #     "obs",
+            #     vis_util.COLORS["obs"],
+            #     ca.DM([track_vis.length / 2, -0.25, 0, ca.pi / 2]),
+            #     None,
+            # ),
+        ],
+        plot_input=True,
+        save=True,
+        animation_filename="J0",
+    )
+
+    quit()
     # # # Start LMPC learning
     lmpc = SoloRelaxedLMPC(
         model,
@@ -72,4 +97,5 @@ if __name__ == "__main__":
     )
     simulator.EXP_NAME = EXP_NAME
     simulator.track_ctrl.update_n_points(155)
-    simulator.run()
+    print(simulator.T)
+    # simulator.run()

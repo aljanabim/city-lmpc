@@ -170,7 +170,7 @@ def compute_ref_trajectory(
     return x_ref, curvature, s_0_arc, phi_0_arc
 
 
-def create_track(x0, y0, phi0, arcs=None, flip=False, J0=False) -> Track:
+def create_track(x0, y0, phi0, arcs=None, both=False, J0=False, flip=False) -> Track:
     """
     Creates the track used in all scenarios.
 
@@ -191,14 +191,15 @@ def create_track(x0, y0, phi0, arcs=None, flip=False, J0=False) -> Track:
             ArcByLength(0, 4),
             ArcByAngle(1 / np.sqrt(2) / 0.65, 90),
             ArcByLength(0, 0.50),
+            ArcByLength(0, 1.35),
         ]
 
-        if J0:
-            arcs.append(
-                ArcByLength(0, 1.35 + 2)
-            )  # add an extra 2 meters for J0 vehicle
-        else:
-            arcs.append(ArcByLength(0, 1.35))
+        if J0:  # add an extra 2 meters for J0 vehicle
+            if both:
+                arcs.insert(0, ArcByLength(0, 1))
+                arcs.append(ArcByLength(0, 1))
+            else:
+                arcs.append(ArcByLength(0, 2))
     return Track(arcs, x_s0=x0, y_s0=y0, phi_s0=phi0, flip=flip)
 
 
@@ -231,3 +232,66 @@ def setup_solo(Controller, Q=None, R=None):
         uub=uub,
     )
     return model, mpc, track_vis, track_ctrl, track_J0, xub_lmpc
+
+
+def setup_oncoming_solo(Controller, Q=None, R=None):
+    from models.solo import SoloFrenetModel
+
+    lane_width = 0.5
+    yaw0 = ca.pi
+
+    track_vis = create_track(0, 0, yaw0)
+    track_ctrl = create_track(0, 0, yaw0)
+    track_ctrl_flipped = create_track(0, 0, yaw0, flip=True)
+
+    track_J0_ego = create_track(0, 0, yaw0, J0=True, both=True)
+    x_ego = ca.vertcat(1, -lane_width / 2, 0, yaw0)
+    model_ego = SoloFrenetModel(x_ego)
+
+    track_J0_onc = create_track(0, 0, yaw0, J0=True, both=True, flip=True)
+    x_onc = ca.vertcat(1, lane_width / 2, 0, yaw0 + ca.pi)
+    model_onc = SoloFrenetModel(x_onc)
+
+    # Input and state constraints for MPC, +0.5 on s to allow reaching the target and the margin +0.5 for J0
+    xub = ca.vertcat(track_ctrl.length * 2, lane_width - model_ego.WB / 2, 0.5, ca.inf)
+    uub = ca.vertcat(1.7, ca.pi / 4)
+
+    xub_lmpc = ca.vertcat(
+        track_ctrl.length * 2, lane_width - model_ego.WB / 2, 0.7, ca.inf
+    )
+
+    # Get trajectory for initial iteration
+    mpc_ego = Controller(
+        model_ego,
+        Q=Q if Q is not None else ca.diag((1, 500, 100, 20)),  # (1, 300, 200, 20)
+        R=R if R is not None else ca.diag((2, 1)),  # (100, 4)
+        xlb=-xub,
+        xub=xub,
+        ulb=-uub,
+        uub=uub,
+    )
+
+    mpc_onc = Controller(
+        model_onc,
+        Q=Q if Q is not None else ca.diag((1, 500, 100, 20)),  # (1, 300, 200, 20)
+        R=R if R is not None else ca.diag((2, 1)),  # (100, 4)
+        xlb=-xub,
+        xub=xub,
+        ulb=-uub,
+        uub=uub,
+    )
+    return (
+        # ego
+        model_ego,
+        track_J0_ego,
+        mpc_ego,
+        # onc
+        model_onc,
+        track_J0_onc,
+        mpc_onc,
+        # Solo LMPC
+        track_vis,
+        track_ctrl,
+        track_ctrl_flipped,
+        xub_lmpc,
+    )

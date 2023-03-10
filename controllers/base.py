@@ -1,12 +1,13 @@
 import numpy as np
 import casadi as ca
 from models.base import BaseModel
+from models.solo import SoloFrenetModel
 
 
 class BaseMPC:
     def __init__(
         self,
-        model: BaseModel,
+        model: SoloFrenetModel,
         Q: ca.DM,
         R: ca.DM,
         xlb: ca.DM,

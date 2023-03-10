@@ -38,7 +38,9 @@ class SoloMPC(BaseMPC):
 
     def set_linear_constraints(self):
         # Set control rate constraints
-        uub_rate = self.model.dt * ca.DM([[1], [0.7]])
+        uub_rate = self.model.dt * ca.DM([1, 0.7] * int(self.n_inputs / 2)).reshape(
+            (self.n_inputs, 1)
+        )
         u_rate = ca.sqrt((self.u[:, :-1] - self.u[:, 1:]) ** 2)
         u_rate = ca.horzcat(ca.sqrt((self.u_prev - self.u[:, 0]) ** 2), u_rate)
         self.opti.subject_to(self.opti.bounded(-uub_rate, u_rate, uub_rate))

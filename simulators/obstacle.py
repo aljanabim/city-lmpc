@@ -5,7 +5,7 @@ from models.solo import SoloFrenetModel
 from controllers.solo import SoloMPC, SoloRelaxedLMPC
 from models.track import Track
 from simulators.base import BaseSimulator, BaseLMPCSimulator
-from controllers.obstacle_old import ObstacleLMPC
+from controllers.obstacle import ObstacleLMPC
 
 
 class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
@@ -76,13 +76,8 @@ class ObstacleMPCSimulator(BaseSimulator):  # Using a Frenet Model
         rectellipse_s = (2 * (ego_c - obs_c) / (2 * L + dL)) ** deg
         rectellipse_e = (2 * (ego_e - obs_e) / (2 * W + dW)) ** deg
         rectellipse = rectellipse_s + rectellipse_e
-        if rectellipse < 1:
-            print(
-                "OOOOopps rectellipse constraint not satisfied",
-                rectellipse,
-                rectellipse >= 1,
-            )
-            exit()
+
+        assert rectellipse >= 1, f"Rectellipse for obs is violated {rectellipse}"
 
         print(self.x[2, 0], "m/s")
 
@@ -110,6 +105,7 @@ class ObstacleLMPCSimulator(BaseLMPCSimulator):  # Using a Frenet Model
     def reset(self):
         super().reset()
         self.slack_norm = ca.inf
+        self.u_prev = ca.DM.zeros(self.controller.n_inputs, 1)
 
     def get_stored_data(self):
         stored_cost_to_go = ca.DM()
