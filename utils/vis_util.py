@@ -26,7 +26,9 @@ WB = 0.324  # [m]
 chassis_height = 0.06  # [m] approx.
 top_height = 0.22  # [m] approx.
 
-COLORS = {"onc": "#000000", "ego": "#00c0b3", "obs": "#FF0000"}
+# COLORS = {"onc": "#000000", "ego": "#00c0b3", "obs": "#FF0000"}
+COLORS = {"onc": "#FF644E", "ego": "#00A2FF", "obs": "#F9B900"}
+GRAY = "#585B56"
 
 
 @dataclass
@@ -165,7 +167,7 @@ def plot_highway(
     length_highway=20,
     start_onramp=10,
     length_onramp=5,
-    color="-k",
+    color="#585B56",
     color_dashed="#808080",
     plot=True,
 ):
@@ -255,6 +257,23 @@ def plot_highway(
         # dashed lines for lanes in between
         else:
             plt.plot(x_lane, y_lane + (i + 1) * lane_width, color)
+
+
+def draw_arrow(plt, arr_start, arr_end):
+    # from https://www.skytowner.com/explore/drawing_arrows_in_matplotlib
+    dx = arr_end[0] - arr_start[0]
+    dy = arr_end[1] - arr_start[1]
+    plt.arrow(
+        arr_start[0],
+        arr_start[1],
+        dx,
+        dy,
+        head_width=0.125,
+        head_length=0.125,
+        length_includes_head=True,
+        color="black",
+        zorder=100,
+    )
 
 
 def animate_trajectory(
@@ -373,7 +392,11 @@ def animate_trajectory(
 
 
 def plot_trajectory(
-    track: Track, vehicles: list[VehicleData], plot_input=False, lane_width=0.5  # m
+    track: Track,
+    vehicles: list[VehicleData],
+    plot_input=False,
+    show=False,
+    plot_axis=False,
 ):
     """Very similar to animate_trajectory without tqdm and the ability to save the plots into an animation file.
     plot_trajectory just shows each frame with a 0.01 pause.
@@ -419,7 +442,10 @@ def plot_trajectory(
 
     plt.axis("equal")
     plt.legend()
-    plt.axis("off")
+    if plot_axis:
+        plt.axis("on")
+    else:
+        plt.axis("off")
 
     if plot_input:
         plt.subplot(2, 1, 2)
@@ -439,7 +465,10 @@ def plot_trajectory(
                 )
                 plt.legend()
 
-    plt.pause(0.01)
+    if show:
+        plt.show()
+    else:
+        plt.pause(0.01)
 
 
 def generate_greys(n, reverse=False) -> List[str]:
