@@ -5,6 +5,7 @@ from utils import sim_util, vis_util
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
+from models.solo import SoloFrenetModel
 
 # Load scenario code
 from simulators.solo import SoloMPCSimulator, SoloRelaxedLMPCSimulator
@@ -94,6 +95,309 @@ def cart_vs_frenet():
 
 # PLOT ALL THREE SCENARIOS SIDE-BY-SIDE
 def scenarios():
+    # PLOT SCENARIO SIDE BY SIDE
+    plt.subplot(1, 3, 1)
+
+    vehicles = [
+        vis_util.VehicleData(
+            "Ego",
+            vis_util.COLORS["ego"],
+            ego_solo_trajectories[0]["states"][:, :1],
+            ego_solo_trajectories[0]["inputs"][:, :1],
+        ),
+    ]
+    vis_util.plot_trajectory(
+        track, vehicles, plot_axis=False, show=False, plot_legend=False
+    )
+    plt.title("Single Vehicle", fontsize=16)
+
+    plt.subplot(1, 3, 2)
+    vehicles = [
+        vis_util.VehicleData(
+            "Ego",
+            vis_util.COLORS["ego"],
+            ego_solo_trajectories[0]["states"][:, :1],
+            ego_solo_trajectories[0]["inputs"][:, :1],
+        ),
+        obs_vehicle,
+    ]
+    vis_util.plot_trajectory(
+        track, vehicles, plot_axis=False, show=False, plot_legend=False
+    )
+    plt.title("Stationary Obstacle", fontsize=16)
+
+    plt.subplot(1, 3, 3)
+    vehicles = [
+        vis_util.VehicleData(
+            "Ego",
+            vis_util.COLORS["ego"],
+            ego_solo_trajectories[0]["states"][:, :1],
+            ego_solo_trajectories[0]["inputs"][:, :1],
+        ),
+        obs_vehicle,
+        vis_util.VehicleData(
+            "Onc",
+            vis_util.COLORS["onc"],
+            onc_trajectory["states"][:, :1],
+            onc_trajectory["inputs"][:, :1],
+        ),
+    ]
+    vis_util.plot_trajectory(
+        track, vehicles, plot_axis=False, show=False, plot_legend=False
+    )
+    plt.title("Oncoming Traffic", fontsize=16)
+    plt.legend(fontsize=8, loc="lower right")
+    plt.tight_layout()
+    plt.savefig("plots/scenarios.pdf")
+
+
+def trajectory_results(trajectories, plot_name, vehicles=[], skip_even=False):
+    alphas = np.linspace(20, 80, len(trajectories), dtype=int)
+    for i, (solo_traj, alpha) in enumerate(zip(trajectories, alphas)):
+        if skip_even and i % 2 == 0 and i != 0:
+            continue
+        vehicles.append(
+            vis_util.VehicleData(
+                f"Iteration {i}",
+                "#000000" + str(alpha)
+                if i < len(trajectories) - 1
+                else vis_util.COLORS["ego"],
+                solo_traj["states"],
+                solo_traj["inputs"],
+            )
+        )
+    vis_util.plot_trajectory(
+        track, vehicles, plot_axis=False, show=False, plot_legend=False
+    )
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    plt.savefig(f"plots/{plot_name}_iterations.pdf")
+    plt.close()
+
+    plt.subplot(2, 1, 1)
+    plt.plot(trajectories[0]["inputs"][0, :], label="Iteration 0")
+    plt.plot(
+        trajectories[-1]["inputs"][0, :],
+        label=f"Iteration {len(trajectories)-1}",
+    )
+    plt.ylabel(r"Input velocity, $v_u$ [m/s]")
+    # plt.xlabel(r"Time step, t")
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(trajectories[0]["inputs"][1, :], label="Iteration 0")
+    plt.plot(
+        trajectories[-1]["inputs"][1, :],
+        label=f"Iteration {len(trajectories)-1}",
+    )
+    plt.ylabel(r"Steering input, $\delta$ [rad]")
+    plt.xlabel(r"Time step, t")
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(f"plots/{plot_name}_inputs.pdf")
+    plt.close()
+
+
+def onc_results():
+    print([traj["states"].shape[1] for traj in ego_onc_sneak_trajectories], "sneak")
+    print([traj["states"].shape[1] for traj in ego_onc_wait_trajectories], "wait")
+    my_dpi = 150
+    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    time_idxs = [1, 240, 300, 386]
+    plt.suptitle("Ego waits for Onc to pass", fontsize=16)
+    for i, time in enumerate(time_idxs):
+        plt.subplot(1, 4, i + 1)
+        vehicles = [
+            obs_vehicle,
+            vis_util.VehicleData(
+                "Ego",
+                vis_util.COLORS["ego"],
+                ego_onc_wait_trajectories[0]["states"][:, :time],
+                ego_onc_wait_trajectories[0]["inputs"][:, :time],
+            ),
+            vis_util.VehicleData(
+                "Onc",
+                vis_util.COLORS["onc"],
+                onc_trajectory["states"][:, :time],
+                onc_trajectory["inputs"][:, :time],
+            ),
+        ]
+        vis_util.plot_trajectory(
+            track, vehicles, plot_axis=False, show=False, plot_legend=False
+        )
+        plt.title(f"Step {time}")
+    plt.legend(fontsize=7, loc="upper right")
+    plt.tight_layout()
+    plt.savefig("plots/onc_j0_wait.pdf")
+    plt.cla()
+
+    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    time_idxs = [1, 80, 140, 240]
+    plt.suptitle("Ego moves before Onc passes", fontsize=16)
+    for i, time in enumerate(time_idxs):
+        plt.subplot(1, 4, i + 1)
+        vehicles = [
+            obs_vehicle,
+            vis_util.VehicleData(
+                "Ego",
+                vis_util.COLORS["ego"],
+                ego_onc_sneak_trajectories[0]["states"][:, :time],
+                ego_onc_sneak_trajectories[0]["inputs"][:, :time],
+            ),
+            vis_util.VehicleData(
+                "Onc",
+                vis_util.COLORS["onc"],
+                onc_trajectory["states"][:, :time],
+                onc_trajectory["inputs"][:, :time],
+            ),
+        ]
+        vis_util.plot_trajectory(
+            track, vehicles, plot_axis=False, show=False, plot_legend=False
+        )
+        plt.title(f"Step {time}")
+    # plt.legend(fontsize=7, loc="upper right")
+    plt.tight_layout()
+    plt.savefig("plots/onc_j0_sneak.pdf")
+
+    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    time_idxs = [1, 80, 140, 145]
+    plt.suptitle("Time-optimal trajectory", fontsize=16)
+    for i, time in enumerate(time_idxs):
+        plt.subplot(1, 4, i + 1)
+        vehicles = [
+            obs_vehicle,
+            vis_util.VehicleData(
+                "Ego",
+                vis_util.COLORS["ego"],
+                ego_onc_sneak_trajectories[3]["states"][:, :time],
+                ego_onc_sneak_trajectories[3]["inputs"][:, :time],
+            ),
+            vis_util.VehicleData(
+                "Onc",
+                vis_util.COLORS["onc"],
+                onc_trajectory["states"][:, :time],
+                onc_trajectory["inputs"][:, :time],
+            ),
+        ]
+        vis_util.plot_trajectory(
+            track, vehicles, plot_axis=False, show=False, plot_legend=False
+        )
+        plt.title(f"Step {time}")
+    # plt.legend(fontsize=7, loc="upper right")
+    plt.tight_layout()
+    plt.savefig("plots/onc_jopt.pdf")
+    plt.close()
+    plt.cla()
+
+    plt.subplot(2, 1, 1)
+    plt.plot(ego_onc_wait_trajectories[0]["inputs"][0, :], label="Iteration 0 (wait)")
+    plt.plot(
+        ego_onc_sneak_trajectories[0]["inputs"][0, :], label="Iteration 0 (no wait)"
+    )
+    plt.plot(ego_onc_sneak_trajectories[3]["inputs"][0, :], label="Iteration 4")
+    plt.ylabel(r"Input velocity, $v_u$ [m/s]")
+    # plt.xlabel(r"Time step, t")
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(ego_onc_wait_trajectories[0]["inputs"][1, :], label="Iteration 0 (wait)")
+    plt.plot(
+        ego_onc_sneak_trajectories[0]["inputs"][1, :], label="Iteration 0 (no wait)"
+    )
+    plt.plot(ego_onc_sneak_trajectories[3]["inputs"][1, :], label="Iteration 4")
+
+    plt.ylabel(r"Steering input, $\delta$ [rad]")
+    plt.xlabel(r"Time step, t")
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(f"plots/onc_inputs.pdf")
+    plt.close()
+
+
+def onc_safety_condition():
+    plt.close()
+    plt.cla()
+    x0 = ca.vertcat(1, -0.5 / 2, 0, ca.pi)
+    model = SoloFrenetModel(x0)
+    N = 15
+    rect_onc = []
+    rect_obs = []
+    # Collision avoidance with rect ellipse for oncoming vehicle as obstacle
+    deg = 2
+    time_steps = ego_onc_sneak_trajectories[3]["states"].shape[1]
+    for time_step in range(time_steps):
+        # Check collision avoidance with rect ellipse
+        L = model.LENGTH
+        W = model.WIDTH
+        dL = (2 ** (1 / deg) - 1) * L
+        dW = W / L * dL
+        # center of ego
+        ego_c = (
+            ego_onc_sneak_trajectories[3]["states"][0, time_step]
+            + model.LENGTH / 2
+            - model.BACKTOWHEEL
+        )
+        # center of obs
+        obs_c = obs_vehicle.states[0, 0] + model.LENGTH / 2 - model.BACKTOWHEEL
+        # lateral deviations of ego
+        ego_e = ego_onc_sneak_trajectories[3]["states"][1, time_step]
+        # lateral deviations of obs
+        obs_e = -0.25
+        # rect ellipse
+        rectellipse_s = (2 * (ego_c - obs_c) / (2 * L + dL)) ** deg
+        rectellipse_e = (2 * (ego_e - obs_e) / (2 * W + dW)) ** deg
+        rectellipse = rectellipse_s + rectellipse_e
+        rect_obs.append(float(rectellipse))
+
+        # Collision avoidance with rect ellipse for oncoming vehicle as obstacle
+        t_onc_lower = min(
+            time_step, ego_onc_sneak_trajectories[3]["states"].shape[1] - 2
+        )
+        t_onc_upper = min(
+            time_step + N + 1, ego_onc_sneak_trajectories[3]["states"].shape[1] - 1
+        )
+        c_onc_0 = (
+            onc_trajectory["states"][0, t_onc_lower]
+            - model.LENGTH / 2
+            + model.BACKTOWHEEL
+        )
+        c_onc_N = (
+            onc_trajectory["states"][0, t_onc_upper]
+            - model.LENGTH / 2
+            + model.BACKTOWHEEL
+        )
+        L_onc = c_onc_0 - c_onc_N + 2 * model.LENGTH
+        c_onc = (c_onc_N + c_onc_0) / 2
+        dL_onc = (2 ** (1 / deg) - 1) * L_onc
+        dW_onc = W / L_onc * dL_onc
+
+        # lateral deviations of obs
+        e_onc = onc_trajectory["states"][1, t_onc_upper]
+        # rect ellipse
+        rectellipse_s_onc = (2 * (ego_c - c_onc) / (2 * L_onc + dL_onc)) ** deg
+        rectellipse_e_onc = (2 * (ego_e - e_onc) / (2 * W + dW_onc)) ** deg
+        rectellipse_onc = rectellipse_s_onc + rectellipse_e_onc
+        rect_onc.append(rectellipse_onc)
+    plt.plot(
+        rect_obs,
+        label=r"Collision condition with Obs: $l(x_{k|t}^j)\succcurlyeq 1$",
+        color=vis_util.COLORS["obs"],
+    )
+    plt.plot(
+        rect_onc,
+        label=r"Collision condition with Onc: $g(x_{k|t}^j)\preccurlyeq 0$",
+        color=vis_util.COLORS["onc"],
+    )
+    plt.hlines(1, 0, len(max(rect_obs, rect_onc)), colors=vis_util.COLORS["ground"])
+    plt.legend()
+    plt.xlabel("Time steps, t")
+    plt.ylabel(r"Evaluating $l(x_{k|t}^j)$ or $g(x_{k|t}^j)$")
+    plt.savefig("plots/onc_collisions.pdf")
+    print("obs", rect_obs)
+    print("onc", rect_onc)
+
+
+if __name__ == "__main__":
     # Load SOLO trajectories
     R = (0, 0)
     L = 100
@@ -115,13 +419,11 @@ def scenarios():
     ego_obs_trajectories = [
         sim_util.load_trajectory(exp_meta, f"J{j}") for j in range(0, load_until + 1)
     ]
-    obs_vehicle = (
-        vis_util.VehicleData(
-            "obs",
-            vis_util.COLORS["obs"],
-            ca.DM([track.length / 2, -0.25, 0, ca.pi / 2]),
-            None,
-        ),
+    obs_vehicle = vis_util.VehicleData(
+        "Obs",
+        vis_util.COLORS["obs"],
+        ca.DM([track.length / 2, -0.25, 0, ca.pi / 2]),
+        None,
     )
 
     # Load both wait and sneak ONC trajectories
@@ -138,7 +440,7 @@ def scenarios():
         _,
         track_ctrl,
         _,
-        xub_lmpc,
+        _,
     ) = sim_util.setup_oncoming_solo(Controller=SoloMPC, Q=ca.diag((1, 300, 200, 20)))
 
     # Load onc wait trajectories
@@ -152,13 +454,19 @@ def scenarios():
     ego_onc_wait_trajectories = [
         sim_util.load_trajectory(exp_meta, f"J{j}") for j in range(0, load_until + 1)
     ]
+    # track_J0_onc has an extra length of 1m on end. And the s_ego starts at 1.
     ego_onc_wait_trajectories[0]["states"][0, :] -= (
         track_J0_onc.length - track_ctrl.length
     ) / 2
     onc_trajectory = sim_util.load_trajectory(exp_meta, "J0-onc")
     onc_trajectory["states"][0, :] = (
         track_J0_onc.length
+        # Flip s for onc
+        # track_J0_onc has an extra length of 1m on end. And the s_onc starts at 1.
+        # we want to flip and shift the s of onc so that it goes
+        # from length of track_ctrl to negative values
         - onc_trajectory["states"][0, :]
+        # track_J0_onc has an extra length of 1m on end. And the s_ego starts at 1.
         - (track_J0_onc.length - track_ctrl.length) / 2
     )
 
@@ -170,57 +478,27 @@ def scenarios():
     ego_onc_sneak_trajectories = [
         sim_util.load_trajectory(exp_meta, f"J{j}") for j in range(0, load_until + 1)
     ]
+    # track_J0_onc has an extra length of 1m on end. And the s_ego starts at 1.
     ego_onc_sneak_trajectories[0]["states"][0, :] -= (
         track_J0_onc.length - track_ctrl.length
     ) / 2
     onc_trajectory = sim_util.load_trajectory(exp_meta, "J0-onc")
     onc_trajectory["states"][0, :] = (
         track_J0_onc.length
+        # Flip s for onc
+        # track_J0_onc has an extra length of 1m on end. And the s_onc starts at 1.
+        # we want to flip and shift the s of onc so that it goes
+        # from length of track_ctrl to negative values
         - onc_trajectory["states"][0, :]
+        # track_J0_onc has an extra length of 1m on end. And the s_ego starts at 1.
         - (track_J0_onc.length - track_ctrl.length) / 2
     )
 
-    vehicles = [
-        # vis_util.VehicleData(
-        #     "ego",
-        #     vis_util.COLORS["ego"],
-        #     traj["states"][:4, :],
-        #     traj["inputs"],
-        # ),
-        # vis_util.VehicleData(
-        #     "obs",
-        #     vis_util.COLORS["obs"],
-        #     ca.DM([track_vis.length / 2, -0.25, 0, ca.pi / 2]),
-        #     None,
-        # ),
-    ]
-
-    vis_util.plot_trajectory(track, vehicles, plot_axis=True, show=True)
-
-    # vis_util.animate_trajectory(
-    #     simulator.exp_meta,
-    #     track_vis,
-    #     [
-    #         vis_util.VehicleData(
-    #             "ego",
-    #             vis_util.COLORS["ego"],
-    #             traj["states"][:4, :],
-    #             traj["inputs"],
-    #         ),
-    #         # vis_util.VehicleData(
-    #         #     "obs",
-    #         #     vis_util.COLORS["obs"],
-    #         #     ca.DM([track_vis.length / 2, -0.25, 0, ca.pi / 2]),
-    #         #     None,
-    #         # ),
-    #     ],
-    #     plot_input=True,
-    #     save=True,
-    #     animation_filename="J0",
-    # )
-    plt.show()
-
-
-if __name__ == "__main__":
     # cart_vs_frenet()
-    scenarios()
+    # scenarios()
+    # trajectory_results(ego_solo_trajectories, plot_name="solo")
+    # trajectory_results(
+    #     ego_obs_trajectories, vehicles=[obs_vehicle], plot_name="obs", skip_even=True
+    # )
+    onc_results()
+    # onc_safety_condition()

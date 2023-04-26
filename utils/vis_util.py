@@ -27,8 +27,8 @@ chassis_height = 0.06  # [m] approx.
 top_height = 0.22  # [m] approx.
 
 # COLORS = {"onc": "#000000", "ego": "#00c0b3", "obs": "#FF0000"}
-COLORS = {"onc": "#FF644E", "ego": "#00A2FF", "obs": "#F9B900"}
 GRAY = "#585B56"
+COLORS = {"onc": "#FF644E", "ego": "#00A2FF", "obs": "#F9B900", "ground": GRAY}
 
 
 @dataclass
@@ -395,8 +395,10 @@ def plot_trajectory(
     track: Track,
     vehicles: list[VehicleData],
     plot_input=False,
-    show=False,
+    show=None,
     plot_axis=False,
+    plot_legend=True,
+    ax=None,
 ):
     """Very similar to animate_trajectory without tqdm and the ability to save the plots into an animation file.
     plot_trajectory just shows each frame with a 0.01 pause.
@@ -430,7 +432,7 @@ def plot_trajectory(
             x[-1],
             y[-1],
             yaw[-1],
-            steering[-1],
+            steering[-1] if vehicle.inputs is not None else 0,
             color=vehicle.color,
             label=vehicle.label,
         )
@@ -441,7 +443,8 @@ def plot_trajectory(
     plt.plot(x_track, y_track, color="#777")
 
     plt.axis("equal")
-    plt.legend()
+    if plot_legend:
+        plt.legend()
     if plot_axis:
         plt.axis("on")
     else:
@@ -463,12 +466,15 @@ def plot_trajectory(
                     color=vehicle.color,
                     label=f"{vehicle.label} " + r"$\delta$",
                 )
-                plt.legend()
+                if plot_legend:
+                    plt.legend()
 
-    if show:
+    if show is None:
+        plt.pause(0.01)
+    elif show:
         plt.show()
     else:
-        plt.pause(0.01)
+        pass
 
 
 def generate_greys(n, reverse=False) -> List[str]:
