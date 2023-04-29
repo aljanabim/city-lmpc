@@ -26,6 +26,7 @@ track = create_track(0, 0, np.pi)
 
 # PLOT SHOWING THE DIFFERENCE BETWEEN CARTESIAN AND FRENET FRAMES
 def cart_vs_frenet():
+    plt.figure()
     lane_r = create_track(0, 0, np.pi)
     lane_r.e_shift = -0.5
     lane_r.update_track()
@@ -91,11 +92,16 @@ def cart_vs_frenet():
     plt.tight_layout()
     # plt.show()
     plt.savefig("plots/cart_vs_frenet.pdf")
+    plt.close()
 
 
 # PLOT ALL THREE SCENARIOS SIDE-BY-SIDE
+titlesize = 30
+
+
 def scenarios():
     # PLOT SCENARIO SIDE BY SIDE
+    set_dpi()
     plt.subplot(1, 3, 1)
 
     vehicles = [
@@ -109,7 +115,7 @@ def scenarios():
     vis_util.plot_trajectory(
         track, vehicles, plot_axis=False, show=False, plot_legend=False
     )
-    plt.title("Single Vehicle", fontsize=16)
+    plt.title("Single Vehicle", fontsize=titlesize)
 
     plt.subplot(1, 3, 2)
     vehicles = [
@@ -124,7 +130,7 @@ def scenarios():
     vis_util.plot_trajectory(
         track, vehicles, plot_axis=False, show=False, plot_legend=False
     )
-    plt.title("Stationary Obstacle", fontsize=16)
+    plt.title("Stationary Obstacle", fontsize=titlesize)
 
     plt.subplot(1, 3, 3)
     vehicles = [
@@ -145,13 +151,15 @@ def scenarios():
     vis_util.plot_trajectory(
         track, vehicles, plot_axis=False, show=False, plot_legend=False
     )
-    plt.title("Oncoming Traffic", fontsize=16)
-    plt.legend(fontsize=8, loc="lower right")
+    plt.title("Oncoming Traffic", fontsize=titlesize)
+    plt.legend(fontsize=16, loc="upper right")
     plt.tight_layout()
     plt.savefig("plots/scenarios.pdf")
+    plt.close()
 
 
 def trajectory_results(trajectories, plot_name, vehicles=[], skip_even=False):
+    plt.figure()
     alphas = np.linspace(20, 80, len(trajectories), dtype=int)
     for i, (solo_traj, alpha) in enumerate(zip(trajectories, alphas)):
         if skip_even and i % 2 == 0 and i != 0:
@@ -174,6 +182,7 @@ def trajectory_results(trajectories, plot_name, vehicles=[], skip_even=False):
     plt.savefig(f"plots/{plot_name}_iterations.pdf")
     plt.close()
 
+    plt.figure()
     plt.subplot(2, 1, 1)
     plt.plot(trajectories[0]["inputs"][0, :], label="Iteration 0")
     plt.plot(
@@ -198,13 +207,19 @@ def trajectory_results(trajectories, plot_name, vehicles=[], skip_even=False):
     plt.close()
 
 
+def set_dpi():
+    my_dpi = 100
+    plt.figure(figsize=(1320 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+
+
 def onc_results():
     print([traj["states"].shape[1] for traj in ego_onc_sneak_trajectories], "sneak")
     print([traj["states"].shape[1] for traj in ego_onc_wait_trajectories], "wait")
-    my_dpi = 150
-    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    set_dpi()
+
     time_idxs = [1, 240, 300, 386]
-    plt.suptitle("Ego waits for Onc to pass", fontsize=16)
+    fontsize_step = 20
+    plt.suptitle("Ego waits for Onc to pass", fontsize=titlesize)
     for i, time in enumerate(time_idxs):
         plt.subplot(1, 4, i + 1)
         vehicles = [
@@ -225,15 +240,15 @@ def onc_results():
         vis_util.plot_trajectory(
             track, vehicles, plot_axis=False, show=False, plot_legend=False
         )
-        plt.title(f"Step {time}")
-    plt.legend(fontsize=7, loc="upper right")
+        plt.title(f"Step {time}", fontsize=fontsize_step)
+    plt.legend(fontsize=16, loc="upper right")
     plt.tight_layout()
     plt.savefig("plots/onc_j0_wait.pdf")
-    plt.cla()
+    plt.close()
 
-    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    set_dpi()
     time_idxs = [1, 80, 140, 240]
-    plt.suptitle("Ego moves before Onc passes", fontsize=16)
+    plt.suptitle("Ego moves before Onc passes", fontsize=titlesize)
     for i, time in enumerate(time_idxs):
         plt.subplot(1, 4, i + 1)
         vehicles = [
@@ -254,14 +269,15 @@ def onc_results():
         vis_util.plot_trajectory(
             track, vehicles, plot_axis=False, show=False, plot_legend=False
         )
-        plt.title(f"Step {time}")
+        plt.title(f"Step {time}", fontsize=fontsize_step)
     # plt.legend(fontsize=7, loc="upper right")
     plt.tight_layout()
     plt.savefig("plots/onc_j0_sneak.pdf")
+    plt.close()
 
-    plt.figure(figsize=(1920 / my_dpi, 500 / my_dpi), dpi=my_dpi)
+    set_dpi()
     time_idxs = [1, 80, 140, 145]
-    plt.suptitle("Time-optimal trajectory", fontsize=16)
+    plt.suptitle("Time-optimal trajectory", fontsize=titlesize)
     for i, time in enumerate(time_idxs):
         plt.subplot(1, 4, i + 1)
         vehicles = [
@@ -282,13 +298,13 @@ def onc_results():
         vis_util.plot_trajectory(
             track, vehicles, plot_axis=False, show=False, plot_legend=False
         )
-        plt.title(f"Step {time}")
+        plt.title(f"Step {time}", fontsize=fontsize_step)
     # plt.legend(fontsize=7, loc="upper right")
     plt.tight_layout()
     plt.savefig("plots/onc_jopt.pdf")
     plt.close()
-    plt.cla()
 
+    plt.figure()
     plt.subplot(2, 1, 1)
     plt.plot(ego_onc_wait_trajectories[0]["inputs"][0, :], label="Iteration 0 (wait)")
     plt.plot(
@@ -315,8 +331,6 @@ def onc_results():
 
 
 def onc_safety_condition():
-    plt.close()
-    plt.cla()
     x0 = ca.vertcat(1, -0.5 / 2, 0, ca.pi)
     model = SoloFrenetModel(x0)
     N = 15
@@ -378,6 +392,7 @@ def onc_safety_condition():
         rectellipse_e_onc = (2 * (ego_e - e_onc) / (2 * W + dW_onc)) ** deg
         rectellipse_onc = rectellipse_s_onc + rectellipse_e_onc
         rect_onc.append(rectellipse_onc)
+    plt.figure()
     plt.plot(
         rect_obs,
         label=r"Collision condition with Obs: $l(x_{k|t}^j)\succcurlyeq 1$",
@@ -388,11 +403,15 @@ def onc_safety_condition():
         label=r"Collision condition with Onc: $g(x_{k|t}^j)\preccurlyeq 0$",
         color=vis_util.COLORS["onc"],
     )
+    plt.annotate(
+        r"Safety Line $(y=1)$", [0, 2], color=vis_util.COLORS["ground"], fontsize=12
+    )
     plt.hlines(1, 0, len(max(rect_obs, rect_onc)), colors=vis_util.COLORS["ground"])
     plt.legend()
     plt.xlabel("Time steps, t")
     plt.ylabel(r"Evaluating $l(x_{k|t}^j)$ or $g(x_{k|t}^j)$")
     plt.savefig("plots/onc_collisions.pdf")
+    plt.close()
     print("obs", rect_obs)
     print("onc", rect_onc)
 
@@ -494,11 +513,11 @@ if __name__ == "__main__":
         - (track_J0_onc.length - track_ctrl.length) / 2
     )
 
-    # cart_vs_frenet()
-    # scenarios()
-    # trajectory_results(ego_solo_trajectories, plot_name="solo")
-    # trajectory_results(
-    #     ego_obs_trajectories, vehicles=[obs_vehicle], plot_name="obs", skip_even=True
-    # )
+    cart_vs_frenet()
+    scenarios()
+    trajectory_results(ego_solo_trajectories, plot_name="solo")
+    trajectory_results(
+        ego_obs_trajectories, vehicles=[obs_vehicle], plot_name="obs", skip_even=True
+    )
     onc_results()
-    # onc_safety_condition()
+    onc_safety_condition()
