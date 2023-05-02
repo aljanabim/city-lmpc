@@ -398,7 +398,7 @@ def plot_trajectory(
     show=None,
     plot_axis=False,
     plot_legend=True,
-    ax=None,
+    use_bicycle=False,
 ):
     """Very similar to animate_trajectory without tqdm and the ability to save the plots into an animation file.
     plot_trajectory just shows each frame with a 0.01 pause.
@@ -418,12 +418,16 @@ def plot_trajectory(
         if vehicle.states is not None:
             # k = min(t, vehicle.states.shape[1] - 1)  # get last index for vehicle
             steps = vehicle.states.shape[1]
-            s = vehicle.states[0, :]
-            e = vehicle.states[1, :]
-            x = np.zeros(steps)
-            y = np.zeros(steps)
-            for i in range(steps):
-                x[i], y[i] = track.to_global(s[i], e[i])
+            if use_bicycle:
+                x = vehicle.states[0, :]
+                y = vehicle.states[1, :]
+            else:
+                s = vehicle.states[0, :]
+                e = vehicle.states[1, :]
+                x = np.zeros(steps)
+                y = np.zeros(steps)
+                for i in range(steps):
+                    x[i], y[i] = track.to_global(s[i], e[i])
             yaw = vehicle.states[-1, :]
         # Get real input values
         if vehicle.inputs is not None:
